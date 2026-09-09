@@ -42,17 +42,17 @@ Copy this for each day.
 
 ## Day 1 - The memory hierarchy, measured
 
-**Date:** | **Time spent:**
+**Date:** 9th of September, 2026 | **Time spent:** 35 Mins
 
-**What I built:**
+**What I built:** I built a simple app to show difference between latencies for Sequential reads vs Random Access reads. (Seq are approx 71x better) 
 
 **The three questions:**
-1.
-2.
-3.
+1. The ratio I measured was around (50 -70) : 1, while cheatsheet predicts approx 100:1. Problem due to system being used by other resources.
+2. Array of int is faster to sum as the values are stored sequentially so CPU can pre-fetch those. Approximately (50-100) : 1. 
+3. The ratio dropped from 70 to 7. Small dataset (1-2 MB) can be accessed via random access as they are still in L2  cache, while larger dataset (>20MB) will create miss which will add RAM seek.
 
-**The trade-off in one line:**
+**The trade-off in one line:** Locality is free performance, but it constrains your data layout. Arrays are fast and rigid; linked structures are flexible and cache-hostile.
 
-**Interview angle:**
+**Interview angle:**  When someone proposes a design that reads scattered rows in a loop, the sentence you want is: "that is a random-access pattern — each row is likely a separate page fetch, so we are paying about N disk seeks rather than one sequential scan." Same principle, one level down the hierarch
 
 **Still fuzzy:**

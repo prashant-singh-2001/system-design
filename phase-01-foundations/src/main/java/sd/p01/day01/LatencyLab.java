@@ -32,7 +32,14 @@ public final class LatencyLab {
      * so you pay for roughly one memory fetch per 16 elements.
      */
     public static Measurement sequentialSum(int[] data) {
-        throw new UnsupportedOperationException("TODO(day01): implement sequentialSum");
+        long start = System.nanoTime();
+        long checksum = 0;
+        for (int i = 0; i < data.length; i++) {
+            checksum += data[i];
+        }
+        long elapsed = System.nanoTime() - start;
+        return new Measurement(elapsed, checksum);
+        // throw new UnsupportedOperationException("TODO(day01): implement sequentialSum");
     }
 
     /**
@@ -47,7 +54,16 @@ public final class LatencyLab {
      * large dataset costs you, and it is why "just add an index" is not always the answer.
      */
     public static Measurement stridedSum(int[] data, int stride) {
-        throw new UnsupportedOperationException("TODO(day01): implement stridedSum");
+        long start = System.nanoTime();
+        long checksum = 0;
+        for (int offset = 0; offset < stride; offset++) {
+            for (int i = offset; i < data.length; i += stride) {
+                checksum += data[i];
+            }
+        }
+        long elapsed = System.nanoTime() - start;
+        return new Measurement(elapsed, checksum);
+        // throw new UnsupportedOperationException("TODO(day01): implement stridedSum");
     }
 
     // ---------------------------------------------------------------- given helpers
