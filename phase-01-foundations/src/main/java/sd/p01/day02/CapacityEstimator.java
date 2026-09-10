@@ -23,12 +23,12 @@ public final class CapacityEstimator {
 
     /** TODO(day02): average writes per second across the whole day. */
     public static long writeQps(SystemProfile p) {
-        throw new UnsupportedOperationException("TODO(day02): implement writeQps");
+        return (long) (p.dailyActiveUsers() * p.writesPerUserPerDay() / SECONDS_PER_DAY);
     }
 
     /** TODO(day02): average reads per second across the whole day. */
     public static long readQps(SystemProfile p) {
-        throw new UnsupportedOperationException("TODO(day02): implement readQps");
+        return (long) (p.dailyActiveUsers() * p.readsPerUserPerDay() / SECONDS_PER_DAY);
     }
 
     /**
@@ -36,7 +36,7 @@ public final class CapacityEstimator {
      * Multiply and round to a whole number of requests.
      */
     public static long peakQps(long averageQps, double peakMultiplier) {
-        throw new UnsupportedOperationException("TODO(day02): implement peakQps");
+        return Math.round(averageQps * peakMultiplier);
     }
 
     /**
@@ -48,22 +48,22 @@ public final class CapacityEstimator {
      * storage and partitioning.
      */
     public static double readWriteRatio(SystemProfile p) {
-        throw new UnsupportedOperationException("TODO(day02): implement readWriteRatio");
+        return (double) readQps(p) / writeQps(p);
     }
 
     /** TODO(day02): new bytes written per day, before replication. */
     public static long storageBytesPerDay(SystemProfile p) {
-        throw new UnsupportedOperationException("TODO(day02): implement storageBytesPerDay");
+        return (long) (p.dailyActiveUsers() * p.writesPerUserPerDay() * p.bytesPerWrite());
     }
 
     /** TODO(day02): total stored bytes over the retention window, including replication. */
     public static long totalStorageBytes(SystemProfile p) {
-        throw new UnsupportedOperationException("TODO(day02): implement totalStorageBytes");
+        return (long) (storageBytesPerDay(p) * p.retentionYears() * DAYS_PER_YEAR * p.replicationFactor());
     }
 
     /** TODO(day02): inbound bytes per second at average write load. */
     public static long ingressBytesPerSecond(SystemProfile p) {
-        throw new UnsupportedOperationException("TODO(day02): implement ingressBytesPerSecond");
+        return (long) (writeQps(p) * p.bytesPerWrite());
     }
 
     // ---------------------------------------------------------------- given helpers

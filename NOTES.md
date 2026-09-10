@@ -56,3 +56,21 @@ Copy this for each day.
 **Interview angle:**  When someone proposes a design that reads scattered rows in a loop, the sentence you want is: "that is a random-access pattern — each row is likely a separate page fetch, so we are paying about N disk seeks rather than one sequential scan." Same principle, one level down the hierarch
 
 **Still fuzzy:**
+
+---
+## Day 2 - Back-of-the-envelope estimation
+
+**Date:** 10th September, 2026 | **Time spent:** 32 Minutes
+
+**What I built:** A simple estimator class to find the estimated readQPS, writeQPS and storage related queries.
+
+**The three questions:**
+1. 
+2. No it does not fit on one machine, this tells me that the storage and compute systems should be distributed. You must partition horizontally (sharding). Split users/data across dozens of machines by range or hash, each shard holding ~10–20 TB, replicated 3x. A single machine is no longer viable; you're forced into distributed storage.
+3. At 200k–231k reads/sec, the decision to build a read-heavy architecture doesn't change. The error only matters when estimates land near decision boundaries (e.g., if true QPS was 9,000 and rounding puts you at 10,000, pushing you across a "single database" vs. "sharded database" threshold). Here, 200k is so far above those boundaries that 15% is noise.
+
+**The trade-off in one line:** Rounding aggressively costs you accuracy and buys you speed and confidence.
+
+**Interview angle:** The 15% rounding is acceptable here because it doesn't change the architectural decision — we're so clearly read-heavy at 50:1 that ±15% doesn't flip us to a write-optimized design. I'd call it out anyway, so the estimate stays transparent.
+
+**Still fuzzy:** <write it down; fuzzy things compound if left alone>
