@@ -1,0 +1,39 @@
+-- TODO(day41): design a normalized schema for orders, satisfying 1NF/2NF/3NF, with real
+-- constraints doing real work - not just column types.
+--
+-- Four tables, exactly these columns and constraints (Day41SchemaTest checks all of it):
+--
+--   customers
+--     id            BIGSERIAL PRIMARY KEY
+--     email         TEXT NOT NULL, UNIQUE
+--     name          TEXT NOT NULL
+--
+--   products
+--     id            BIGSERIAL PRIMARY KEY
+--     sku           TEXT NOT NULL, UNIQUE
+--     name          TEXT NOT NULL
+--     price_cents   BIGINT NOT NULL, CHECK (price_cents > 0)
+--
+--   orders
+--     id            BIGSERIAL PRIMARY KEY
+--     customer_id   BIGINT NOT NULL, REFERENCES customers(id)
+--     status        TEXT NOT NULL, CHECK (status IN ('DRAFT', 'SUBMITTED', 'PAID', 'CANCELLED'))
+--     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+--
+--   order_items
+--     order_id          BIGINT NOT NULL, REFERENCES orders(id)
+--     product_id        BIGINT NOT NULL, REFERENCES products(id)
+--     quantity          INT NOT NULL, CHECK (quantity > 0)
+--     unit_price_cents  BIGINT NOT NULL, CHECK (unit_price_cents >= 0)
+--     PRIMARY KEY (order_id, product_id)
+--
+-- Why this shape is 3NF, in one line each:
+--   1NF - no repeating groups (no item1_name, item2_name... columns; order_items is its own table)
+--   2NF - order_items' non-key columns depend on the WHOLE composite key (order_id, product_id),
+--         not on just one half of it
+--   3NF - a product's name and price live only in `products`; order_items stores
+--         unit_price_cents because a HISTORICAL price at time of purchase is genuinely a fact
+--         about the order, not a duplicate of products.price_cents (which can change later)
+--
+-- Write your CREATE TABLE statements below, in an order that satisfies the foreign keys
+-- (customers and products before orders; orders before order_items).
