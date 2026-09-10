@@ -1,0 +1,10 @@
+<configuration>
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder><pattern>%-5level %logger{20} - %msg%n</pattern></encoder>
+  </appender>
+  <!-- Kafka and Testcontainers are extremely chatty; keep the test output readable. -->
+  <logger name="org.apache.kafka" level="WARN"/>
+  <logger name="org.testcontainers" level="WARN"/>
+  <logger name="com.github.dockerjava" level="WARN"/>
+  <root level="INFO"><appender-ref ref="STDOUT"/></root>
+</configuration>

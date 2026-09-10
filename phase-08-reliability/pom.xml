@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.systemdesign</groupId>
+    <artifactId>system-design</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>phase-08-reliability</artifactId>
+  <name>Phase 8 - Reliability and distributed systems</name>
+
+  <!-- Almost all of this phase is deliberately hand-rolled in plain Java: you learn far more
+       building a circuit breaker or a Raft election than configuring one. Micrometer appears on
+       day 78 because instrumentation is that day's actual subject. -->
+  <dependencies>
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-prometheus</artifactId>
+    </dependency>
+  </dependencies>
+</project>
