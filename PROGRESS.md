@@ -8,9 +8,9 @@ Streak rule: missing a day is fine, missing two in a row is the thing to avoid.
 
 ## Phase 1  (days 1-10)
 
-- [ ] **Day 1** - Feel the memory hierarchy. Why sequential access beats random by 10-100x.
-- [ ] **Day 2** - Turn a product description into QPS, storage and bandwidth numbers.
-- [ ] **Day 3** - Little's Law. Why p99 explodes as utilisation approaches 1.
+- [x] **Day 1** - Feel the memory hierarchy. Why sequential access beats random by 10-100x.
+- [x] **Day 2** - Turn a product description into QPS, storage and bandwidth numbers.
+- [x] **Day 3** - Little's Law. Why p99 explodes as utilisation approaches 1.
 - [ ] **Day 4** - The JVM memory model: lost updates, visibility, happens-before.
 - [ ] **Day 5** - Four ways to count safely, and what each costs under contention.
 - [ ] **Day 6** - Virtual threads vs platform threads for blocking work.

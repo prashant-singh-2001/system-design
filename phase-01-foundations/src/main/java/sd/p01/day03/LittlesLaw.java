@@ -24,7 +24,8 @@ public final class LittlesLaw {
      * latency? This sizes your thread pool and your connection pool.
      */
     public static double concurrencyNeeded(double throughputPerSecond, double latencySeconds) {
-        throw new UnsupportedOperationException("TODO(day03): implement concurrencyNeeded");
+        return throughputPerSecond * latencySeconds;
+        // throw new UnsupportedOperationException("TODO(day03): implement concurrencyNeeded");
     }
 
     /**
@@ -34,12 +35,14 @@ public final class LittlesLaw {
      * throughput. No amount of tuning gets you past it; you either cut latency or add workers.
      */
     public static double maxThroughput(int concurrency, double latencySeconds) {
-        throw new UnsupportedOperationException("TODO(day03): implement maxThroughput");
+        return concurrency / latencySeconds;
+        // throw new UnsupportedOperationException("TODO(day03): implement maxThroughput");
     }
 
     /** TODO(day03): rho = lambda / mu, the fraction of time the server is busy. */
     public static double utilisation(double arrivalRate, double serviceRate) {
-        throw new UnsupportedOperationException("TODO(day03): implement utilisation");
+        return arrivalRate / serviceRate;
+        // throw new UnsupportedOperationException("TODO(day03): implement utilisation");
     }
 
     /**
@@ -50,7 +53,10 @@ public final class LittlesLaw {
      * unstable and grows without bound, so there is no finite answer to give.
      */
     public static double averageResponseTime(double arrivalRate, double serviceRate) {
-        throw new UnsupportedOperationException("TODO(day03): implement averageResponseTime");
+        if (arrivalRate >= serviceRate) {
+            throw new IllegalArgumentException("Queue is unstable: arrival rate must be less than service rate");
+        }
+        return 1.0 / (serviceRate - arrivalRate);
     }
 
     /**
@@ -59,7 +65,11 @@ public final class LittlesLaw {
      * <p>Same instability rule as above.
      */
     public static double averageQueueLength(double arrivalRate, double serviceRate) {
-        throw new UnsupportedOperationException("TODO(day03): implement averageQueueLength");
+        double rho = utilisation(arrivalRate, serviceRate);
+        if (rho >= 1) {
+            throw new IllegalArgumentException("Queue is unstable: utilisation must be less than 1");
+        }
+        return rho * rho / (1 - rho);
     }
 
     // ---------------------------------------------------------------- given helper

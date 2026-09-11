@@ -58,6 +58,7 @@ Copy this for each day.
 **Still fuzzy:**
 
 ---
+
 ## Day 2 - Back-of-the-envelope estimation
 
 **Date:** 10th September, 2026 | **Time spent:** 32 Minutes
@@ -72,5 +73,27 @@ Copy this for each day.
 **The trade-off in one line:** Rounding aggressively costs you accuracy and buys you speed and confidence.
 
 **Interview angle:** The 15% rounding is acceptable here because it doesn't change the architectural decision — we're so clearly read-heavy at 50:1 that ±15% doesn't flip us to a write-optimized design. I'd call it out anyway, so the estimate stays transparent.
+
+**Still fuzzy:** 
+
+---
+
+## Day 3 - Little's Law and the queueing knee
+
+**Date:** 11th September, 2026 | **Time spent:** 28 Min
+
+**What I built:** A simple class to validate throughput and concurrency of a system
+
+**The three questions:**
+1.  Since 200req/s and p50 of 0.1, in flight is 20 req (needed threads) + 70% headroom == 30 threads with 50$ as extra.
+2. Maximum throughput drops 67% (from 1,000 to 333 req/s). The pool is saturated with requests taking 3x longer. Requests queue up, latencies explode, and you can't process traffic fast enough. This is why you need headroom — a fixed pool can't adapt when dependencies degrade.
+3.  Scale at 60–70% because:
+    - Autoscaling takes time (instance provisioning, warmup, DNS propagation)
+    - You need buffer time before new instances come online
+    - At 80%+, you're already in the vertical part of the curve—by the time new capacity appears, users have experienced a p99 latency explosion for minutes
+
+**The trade-off in one line:** Costs vs Throughput choke, needs to be decided not just flinged
+
+**Interview angle:** I'd set the threshold at 70% utilization. Below that, the response curve is still reasonable. Above that, each percent increase hits disproportionately harder. Since autoscaling is reactive and takes time, I want to trigger it while I still have headroom, not when I'm already at the cliff.
 
 **Still fuzzy:** 
