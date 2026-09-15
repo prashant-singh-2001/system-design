@@ -19,12 +19,12 @@ public final class SafeCounter implements Counter {
     private long count;
 
     @Override
-    public void increment() {
-        throw new UnsupportedOperationException("TODO(day04): make increment() thread-safe");
+    public synchronized void increment() {
+        count++;
     }
 
     @Override
-    public long value() {
-        throw new UnsupportedOperationException("TODO(day04): make value() see other threads' writes");
+    public synchronized long value() {
+        return count;
     }
 }

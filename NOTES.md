@@ -53,7 +53,7 @@ Copy this for each day.
 
 **The trade-off in one line:** Locality is free performance, but it constrains your data layout. Arrays are fast and rigid; linked structures are flexible and cache-hostile.
 
-**Interview angle:**  When someone proposes a design that reads scattered rows in a loop, the sentence you want is: "that is a random-access pattern — each row is likely a separate page fetch, so we are paying about N disk seeks rather than one sequential scan." Same principle, one level down the hierarch
+**Interview angle:** When someone proposes a design that reads scattered rows in a loop, the sentence you want is: "that is a random-access pattern — each row is likely a separate page fetch, so we are paying about N disk seeks rather than one sequential scan." Same principle, one level down the hierarchy.
 
 **Still fuzzy:**
 
@@ -85,15 +85,99 @@ Copy this for each day.
 **What I built:** A simple class to validate throughput and concurrency of a system
 
 **The three questions:**
-1.  Since 200req/s and p50 of 0.1, in flight is 20 req (needed threads) + 70% headroom == 30 threads with 50$ as extra.
+1. Since 200 req/s and p50 of 0.1s, in-flight is 20 req (needed threads) + 70% headroom == 30 threads with 50% as extra.
 2. Maximum throughput drops 67% (from 1,000 to 333 req/s). The pool is saturated with requests taking 3x longer. Requests queue up, latencies explode, and you can't process traffic fast enough. This is why you need headroom — a fixed pool can't adapt when dependencies degrade.
-3.  Scale at 60–70% because:
-    - Autoscaling takes time (instance provisioning, warmup, DNS propagation)
-    - You need buffer time before new instances come online
-    - At 80%+, you're already in the vertical part of the curve—by the time new capacity appears, users have experienced a p99 latency explosion for minutes
+3. Scale at 60-70% because:
+   - Autoscaling takes time (instance provisioning, warmup, DNS propagation)
+   - You need buffer time before new instances come online
+   - At 80%+, you're already in the vertical part of the curve — by the time new capacity appears, users have experienced a p99 latency explosion for minutes
 
-**The trade-off in one line:** Costs vs Throughput choke, needs to be decided not just flinged
+**The trade-off in one line:** Headroom costs money and buys latency stability — it needs to be a deliberate decision, not something left to chance.
 
 **Interview angle:** I'd set the threshold at 70% utilization. Below that, the response curve is still reasonable. Above that, each percent increase hits disproportionately harder. Since autoscaling is reactive and takes time, I want to trigger it while I still have headroom, not when I'm already at the cliff.
 
 **Still fuzzy:** 
+
+---
+
+## Day 4 - The JVM memory model
+
+**Date:** 15th September, 2026 | **Time spent:** 15 Mins
+
+**What I built:** Simple atomic counter and volatile flags
+
+**The three questions:**
+
+1. Yes, the lost count changes every run — perhaps 127 lost on run 1, 342 on run 2, 89 on run 3. That makes the bug nearly impossible to diagnose from production logs because:
+   - The symptom is non-deterministic and non-reproducible
+   - You see the wrong final count, but you can't pinpoint which increments were lost or when
+   - Thread interleavings differ on each run — same code, same input, different failure
+   - Logs show "expected 1,000,000, got 999,127" but you can't trace it to a specific thread or line
+   - Running with debuggers/logging often masks the bug (instrumentation adds pauses that serialize access)
+
+   Lesson: concurrency bugs are the hardest class of bugs to debug. The only defense is not allowing the race condition to exist in the first place — via `synchronized`, `AtomicLong`, or a lock.
+
+2. `volatile` ensures visibility (the write becomes visible to other threads), but `count++` requires atomicity (the read-modify-write must be indivisible). The breakdown:
+
+   ```java
+   volatile long count = 0;
+   count++;  // THREE operations:
+   // 1. read current value from main memory
+   // 2. add 1
+   // 3. write back to main memory
+   ```
+
+   Race condition: Thread A and Thread B both read the same value (say, 100), both increment to 101, both write back 101. The second increment vanishes.
+
+   `volatile` does not prevent this because:
+   - It only guarantees that writes flush to main memory and reads see the latest value
+   - It does not make the read-modify-write atomic
+   - The three steps can still be interleaved
+
+   The fix — use `AtomicLong`, `synchronized`, or a lock to make the entire read-modify-write indivisible:
+
+   ```java
+   volatile long count = 0;               // Still broken! Need atomicity
+   AtomicLong count = new AtomicLong(0);  // Correct
+   count.incrementAndGet();               // Atomic CAS (Compare-And-Swap)
+   ```
+
+3. A visibility test that spins waiting for a flag to change:
+
+   ```java
+   boolean done = false;  // No volatile
+
+   // Thread 1
+   done = true;
+
+   // Thread 2
+   while (!done) {  // Infinite spin if flag not visible
+       // empty loop
+   }
+   ```
+
+   Without the fix it spins forever (compiler optimizes to an infinite loop). Add `System.out.println` inside the loop and it starts passing, even without the fix:
+
+   ```java
+   while (!done) {
+       System.out.println("waiting...");  // <-- Magic "fix"
+   }
+   ```
+
+   Why:
+   - `System.out.println` calls synchronized methods internally (`PrintStream` is synchronized)
+   - Synchronized blocks create happens-before edges (memory barriers)
+   - Each iteration now acquires/releases a monitor, which forces the JVM to re-check the `done` flag from main memory
+   - The flag becomes visible, and the loop exits
+
+   What this tells you about "it works on my machine":
+   - Concurrency bugs are timing-dependent. Adding logging, debuggers, sleeps, or lock contention changes thread scheduling
+   - Instrumentation can mask bugs. A race condition that fails under load might "pass" when you add logging, because the pauses serialize access
+   - You cannot trust local testing. A test that passes in dev fails in production under real load with many threads
+   - The rule: don't make it volatile, don't add println — fix the race properly (`volatile` for visibility, a lock/atomic for atomicity)
+
+**The trade-off in one line:** Every happens-before edge (synchronized, volatile, thread start/join) is a memory barrier that constrains the CPU and compiler — correctness under concurrency is bought with performance.
+
+**Interview angle:** Adding println "fixed" it because println internally uses synchronized, which created a memory barrier. That's proof the bug was visibility, not logic. In production, we remove that crutch and use volatile or a proper synchronization mechanism. The bug doesn't disappear; it's just hidden until load testing.
+
+**Still fuzzy:**

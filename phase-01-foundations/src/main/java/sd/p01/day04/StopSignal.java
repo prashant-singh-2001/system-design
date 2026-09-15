@@ -14,7 +14,8 @@ package sd.p01.day04;
  */
 public final class StopSignal {
 
-    private boolean stop;
+    
+    private volatile boolean stop;
 
     public void stop() {
         this.stop = true;
