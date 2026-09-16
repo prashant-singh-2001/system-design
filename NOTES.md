@@ -181,3 +181,43 @@ Copy this for each day.
 **Interview angle:** Adding println "fixed" it because println internally uses synchronized, which created a memory barrier. That's proof the bug was visibility, not logic. In production, we remove that crutch and use volatile or a proper synchronization mechanism. The bug doesn't disappear; it's just hidden until load testing.
 
 **Still fuzzy:**
+
+---
+
+## Day 5 - Four ways to count, and what each costs
+
+**Date:** 16th September, 2026 | **Time spent:** 22 Minutes
+
+**What I built:** 3 Copies of a counter program, implementing different ways to ensure atomicity and volatility
+
+**The three questions:**
+
+1. Measured ops/sec at 8 threads:
+
+   | Strategy | Ops/sec |
+   |---|---|
+   | `synchronized` | 5,632,910 |
+   | `ReentrantLock` | 32,506,054 |
+   | `AtomicLong` | 63,544,512 |
+   | `LongAdder` | 411,374,505 |
+
+   Yes, this is the ordering I expected:
+   - `LongAdder` — fastest. Threads spread writes across an array of cells (striping), so contention on any single cache line is rare.
+   - `AtomicLong` — fast at low/moderate contention, but degrades under high contention. Every thread CAS-es the same cache line, so retries and cache-line ping-pong between cores dominate at 8 threads.
+   - `ReentrantLock` — similar cost profile to `synchronized`; slightly more overhead unless you need its extra features (`tryLock`, fairness, interruptibility).
+   - `synchronized` — slowest under load. Once contended, the JVM inflates the lock and threads park in the kernel — a contended acquire costs microseconds instead of nanoseconds.
+
+2. Yes, likely — `AtomicLong` may pull ahead of or match `LongAdder`.
+   - At 2 threads, CAS retries on `AtomicLong` are rare — most compare-and-swap attempts succeed on the first try since only two threads compete for one cache line.
+   - `LongAdder`'s striping (array of cells) adds overhead for no benefit when there's little contention to relieve — you pay for cell allocation and the `sum()` aggregation cost without the payoff of avoiding cache-line ping-pong.
+   - The lesson: `LongAdder`'s advantage only shows up when contention is real. At low thread counts, plain `AtomicLong` is simpler and just as fast (or faster) because there's nothing to shard.
+
+3. `LongAdder`
+
+**The trade-off in one line:** `LongAdder` trades read cost and atomic-snapshot semantics for write throughput.
+
+**Interview angle:** "For a scraped metrics counter, `LongAdder` is the right call — I'm trading a consistent snapshot for write throughput, which is the correct trade because nothing here reads-and-acts on the exact value. If this counter gated a business decision instead of feeding a dashboard, I'd need `AtomicLong`'s real atomicity instead."
+
+**Still fuzzy:**
+
+---

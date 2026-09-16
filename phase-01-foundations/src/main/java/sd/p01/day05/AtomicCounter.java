@@ -1,5 +1,7 @@
 package sd.p01.day05;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 /**
  * TODO(day05): lock-free, using {@code AtomicLong}.
  *
@@ -10,14 +12,16 @@ package sd.p01.day05;
  */
 public final class AtomicCounter implements Counter {
 
+    AtomicLong atomicLong = new AtomicLong();
+
     @Override
     public void increment() {
-        throw new UnsupportedOperationException("TODO(day05): use an AtomicLong");
+        atomicLong.incrementAndGet();
     }
 
     @Override
     public long value() {
-        throw new UnsupportedOperationException("TODO(day05): use an AtomicLong");
+        return atomicLong.get();
     }
 
     @Override

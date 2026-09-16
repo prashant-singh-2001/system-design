@@ -1,5 +1,7 @@
 package sd.p01.day05;
 
+import java.util.concurrent.locks.ReentrantLock;
+
 /**
  * TODO(day05): the same guarantees using an explicit {@code ReentrantLock}.
  *
@@ -14,14 +16,26 @@ public final class LockCounter implements Counter {
 
     private long count;
 
+    ReentrantLock lock = new ReentrantLock();
+
     @Override
     public void increment() {
-        throw new UnsupportedOperationException("TODO(day05): use a ReentrantLock");
+        lock.lock();
+        try {
+            count++;
+        } finally {
+            lock.unlock();
+        }
     }
 
     @Override
     public long value() {
-        throw new UnsupportedOperationException("TODO(day05): use a ReentrantLock");
+        lock.lock();
+        try {
+            return count;
+        } finally {
+            lock.unlock();
+        }
     }
 
     @Override

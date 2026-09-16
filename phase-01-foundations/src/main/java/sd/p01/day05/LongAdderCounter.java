@@ -1,5 +1,7 @@
 package sd.p01.day05;
 
+import java.util.concurrent.atomic.LongAdder;
+
 /**
  * TODO(day05): use {@code LongAdder}.
  *
@@ -16,14 +18,16 @@ package sd.p01.day05;
  */
 public final class LongAdderCounter implements Counter {
 
+    LongAdder longAdder = new LongAdder();
+
     @Override
     public void increment() {
-        throw new UnsupportedOperationException("TODO(day05): use a LongAdder");
+        longAdder.increment();
     }
 
     @Override
     public long value() {
-        throw new UnsupportedOperationException("TODO(day05): use a LongAdder");
+        return longAdder.sum();
     }
 
     @Override
