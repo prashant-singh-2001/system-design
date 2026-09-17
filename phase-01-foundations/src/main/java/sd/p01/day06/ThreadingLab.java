@@ -59,7 +59,18 @@ public final class ThreadingLab {
      * {@code tasks / poolSize x taskDuration}. Make sure you can explain why.
      */
     public static Duration runOnVirtualThreads(int tasks, Duration taskDuration) {
-        throw new UnsupportedOperationException("TODO(day06): implement runOnVirtualThreads");
+        CountDownLatch done = new CountDownLatch(tasks);
+        long began = System.nanoTime();
+        try (ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor()) {
+            for (int i = 0; i < tasks; i++) {
+                pool.execute(() -> {
+                    blockFor(taskDuration);
+                    done.countDown();
+                });
+            }
+            await(done);
+        }
+        return Duration.ofNanos(System.nanoTime() - began);
     }
 
     // ---------------------------------------------------------------- given helpers

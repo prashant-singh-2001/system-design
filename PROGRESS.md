@@ -13,7 +13,7 @@ Streak rule: missing a day is fine, missing two in a row is the thing to avoid.
 - [x] **Day 3** - Little's Law. Why p99 explodes as utilisation approaches 1.
 - [x] **Day 4** - The JVM memory model: lost updates, visibility, happens-before.
 - [x] **Day 5** - Four ways to count safely, and what each costs under contention.
-- [ ] **Day 6** - Virtual threads vs platform threads for blocking work.
+- [x] **Day 6** - Virtual threads vs platform threads for blocking work.
 - [ ] **Day 7** - Blocking vs non-blocking I/O, and what a Selector actually buys.
 - [ ] **Day 8** - HTTP over TCP; what opening a connection really costs.
 - [ ] **Day 9** - Wire formats: size, speed, schema evolution.

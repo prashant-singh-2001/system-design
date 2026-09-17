@@ -221,3 +221,52 @@ Copy this for each day.
 **Still fuzzy:**
 
 ---
+
+## Day 6 - Virtual Threads
+
+**Date:** 17th September, 2026 | **Time spent:** 10 Min
+
+**What I built:** A simple program to see diff between platform threads and virtual threads (its massive)
+
+**The three questions:**
+
+1. Speedup was about ~22.7x:
+   - Platform threads: `tasks / poolSize` rounds × `taskDuration` = 5,000 / 50 = 100 rounds × 20 ms = 2,000 ms.
+   - Virtual threads: theoretically should approach one task duration (~20 ms), since all 5,000 can be "in flight" simultaneously and none compete for a scarce carrier while blocked.
+
+   So the theoretical ratio is 100 rounds → you'd expect something closer to 100x. Measured 22.7x — lower than theoretical, because:
+   - Virtual threads have real (if small) overhead: creating 5,000 continuations, mounting/unmounting them on carrier threads, and the scheduler coordinating all of it isn't free — hence 91 ms instead of the theoretical 20 ms.
+   - The platform pool also isn't a perfect 2,000 ms floor — real sleep/scheduling jitter adds a bit.
+
+   The core relationship: the speedup ratio is fundamentally `poolSize`-bound for platform threads — you're trading a hard ceiling (`tasks/poolSize` rounds) for a near-constant cost when using virtual threads.
+
+2. Measured: platform 244 ms vs. virtual 278 ms (virtual threads slightly slower).
+
+   Prediction (before running): no speedup for virtual threads — possibly even a small loss — because a CPU busy loop never blocks. Virtual threads only help when a task blocks and unmounts from its carrier, freeing that carrier for other work. A pure CPU-bound task occupies a carrier (and a core) for its entire duration regardless of thread type.
+
+   Was I right? Yes — the data confirms it. Virtual threads still get scheduled onto a small number of carrier threads (roughly one per core), so CPU-bound work sees the same core-bound ceiling as platform threads, plus the small extra cost of virtual-thread bookkeeping (mounting/unmounting machinery) that has no payoff here — hence 278 ms vs. 244 ms.
+
+   The rule this confirms: virtual threads are for blocking, I/O-bound work only. For CPU-bound work, a pool sized to core count is still the right model — virtual threads add zero benefit and a small tax.
+
+3. Before (platform threads): my 50-thread pool accidentally capped concurrent calls to the downstream API at 50 in-flight requests. Even if each call takes 100 ms, that's `50 / 0.1s` = 500 req/s max — coincidentally right at the downstream's limit. The pool size was acting as an implicit rate limiter.
+
+   After (virtual threads): there's no pool size to bound concurrency — thousands of virtual threads can all call the downstream API at once. Nothing stops you from firing far more than 500 req/s and overwhelming it.
+
+   What I must add explicitly: a rate limiter or semaphore sized to the downstream's real capacity — e.g.:
+
+   ```java
+   Semaphore downstreamLimit = new Semaphore(500); // or a proper token-bucket limiter
+
+   downstreamLimit.acquire();
+   try {
+       callDownstreamApi();
+   } finally {
+       downstreamLimit.release();
+   }
+   ```
+
+**The trade-off in one line:** Virtual threads make blocking free and thread-per-request scale to hundreds of thousands of connections, but they buy nothing for CPU-bound work and remove the accidental rate limiter your pool size used to provide.
+
+**Interview angle:** With virtual threads, thread-per-request scales to hundreds of thousands of concurrent connections, so the async complexity is no longer the price of concurrency — but blocking downstream calls are still not free for the downstream service, so I'd put an explicit semaphore or rate limiter exactly where the thread pool used to be doing that job by accident.
+
+**Still fuzzy:**
