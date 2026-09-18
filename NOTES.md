@@ -270,3 +270,55 @@ Copy this for each day.
 **Interview angle:** With virtual threads, thread-per-request scales to hundreds of thousands of concurrent connections, so the async complexity is no longer the price of concurrency — but blocking downstream calls are still not free for the downstream service, so I'd put an explicit semaphore or rate limiter exactly where the thread pool used to be doing that job by accident.
 
 **Still fuzzy:**
+
+---
+
+## Day 7 - Blocking vs non-blocking I/O
+
+**Date:** 18th September, 2026 | **Time spent:** 32 Minutes
+
+**What I built:** NIO Server to compare and contrast to simple blocking echo server
+
+**The three questions:**
+
+1. `BlockingEchoServer` is ~95 lines; `NioEchoServer` is ~170+ lines — roughly 1.8x longer, and that's before accounting for the fact that the Selector version still skips partial-write handling (the Stretch goal), which would add more.
+
+   Where the extra complexity went:
+   - Explicit state machine instead of implicit control flow. `BlockingEchoServer.handle()` is a single method with a while loop that reads a line and writes it back — the call stack itself tracks "where we are" in the conversation. `NioEchoServer` has no equivalent single place: a connection's life is split across `handleAccept` (birth), `handleRead` (every subsequent event), and cleanup scattered wherever `-1` or an exception is detected.
+   - Manual lifecycle management. You must remember to flip channels non-blocking, register/cancel keys, and clear `selectedKeys()` every pass — none of which the blocking model requires, because the OS thread scheduler was already doing the equivalent bookkeeping for you.
+   - A single point of failure for all connections. The blocking model isolates failures per-thread (one connection's exception doesn't touch another's stack). The Selector version needs a try/catch inside the loop, per key, or one bad channel takes down every connection on that thread.
+   - Buffer and protocol state has to live somewhere explicit (this sets up Question 2) — the blocking version gets that for free from local variables on the stack.
+
+2. Where it lives now: nowhere, really — this exercise's `handleRead` only echoes whatever bytes arrived in a single read, so there's no state to carry between events. That's exactly why it's simpler than a real protocol implementation.
+
+   But for a protocol that needs partial-message buffering (e.g., a newline-delimited protocol like the blocking version's `readLine()`, where a message might arrive across multiple `OP_READ` events): you'd need to keep a per-connection buffer alive between selector wakeups, since there's no call stack to hold it for you.
+
+   The mechanism: `SelectionKey.attach(Object)` / `key.attachment()`. You'd create a small state object per accepted connection:
+
+   ```java
+   class ConnectionState {
+       ByteBuffer pending = ByteBuffer.allocate(1024);
+       // could also hold: parse position, message-so-far, protocol phase, etc.
+   }
+   ```
+
+   Attach it when you register the channel:
+
+   ```java
+   SelectionKey readKey = clientChannel.register(selector, SelectionKey.OP_READ);
+   readKey.attach(new ConnectionState());
+   ```
+
+   Then in `handleRead`, retrieve it with `key.attachment()`, append newly-read bytes into `pending`, scan for a complete message (e.g., a `\n`), and only act once you have one — leaving any leftover bytes in the buffer for the next event.
+
+   This is the core trade-off of Selector-based I/O: the thread scheduler isn't holding your state anymore, so `SelectionKey` becomes your only hook for "whatever this connection needs to remember between events."
+
+3. One case where I would: building a proxy or load balancer that only forwards bytes and never inspects payload (e.g., a raw TCP/TLS passthrough proxy). Here you genuinely benefit from fine-grained control over buffers and backpressure — you're moving bytes between two channels without ever needing "connection state" in the business-logic sense, so the extra complexity buys real control over memory and flow, and virtual threads offer no real advantage since there's no blocking business logic to simplify.
+
+   One case where I would not: a typical REST/RPC service that calls a database and a couple of downstream APIs per request. Here, virtual threads let me write plain sequential blocking code — `Connection conn = dataSource.getConnection(); ...` — and get the same scalability the Selector model offers, without hand-rolling a state machine, without `SelectionKey` attachments, and with stack traces and debuggers that actually work. The Selector model's cost (explicit state management, no free thread-per-connection isolation) buys nothing here that virtual threads don't already give me for free.
+
+**The trade-off in one line:** Virtual threads give blocking code non-blocking-level scalability, so the Selector's extra complexity is now only worth paying for byte-only proxies, fine-grained buffer/backpressure control, or runtimes without virtual threads.
+
+**Interview angle:** If asked to handle 100,000 concurrent connections, the strong answer names both paths and picks on evidence: "either an event loop, or virtual threads with blocking code — I would start with the second because it is far easier to debug, and move to an event loop only if profiling showed the scheduler was the bottleneck."
+
+**Still fuzzy:** 

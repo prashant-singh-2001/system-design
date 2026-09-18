@@ -1,5 +1,14 @@
 package sd.p01.day07;
 
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
+import java.util.Iterator;
+
 /**
  * TODO(day07): the same echo service on ONE thread, using a {@link java.nio.channels.Selector}.
  *
@@ -43,13 +52,108 @@ package sd.p01.day07;
  */
 public final class NioEchoServer implements EchoServer {
 
+    private static final long SELECT_TIMEOUT_MS = 1000;
+
+    private final ServerSocketChannel serverChannel;
+    private final Selector selector;
+    private final int port;
+    private volatile boolean running = true;
+
     public NioEchoServer() {
-        throw new UnsupportedOperationException("TODO(day07): implement the Selector loop");
+        try {
+            this.serverChannel = ServerSocketChannel.open();
+            serverChannel.bind(new InetSocketAddress(0));
+            serverChannel.configureBlocking(false);
+
+            this.selector = Selector.open();
+            serverChannel.register(selector, SelectionKey.OP_ACCEPT);
+
+            this.port = serverChannel.socket().getLocalPort();
+        } catch (IOException e) {
+            throw new IllegalStateException("could not bind", e);
+        }
+
+        Thread loop = new Thread(this::selectLoop, "nio-echo-select");
+        loop.setDaemon(true);
+        loop.start();
+    }
+
+    private void selectLoop() {
+        while (running) {
+            try {
+                selector.select(SELECT_TIMEOUT_MS);
+            } catch (IOException e) {
+                if (running) {
+                    throw new IllegalStateException("select failed", e);
+                }
+                return; // selector closed during shutdown
+            }
+
+            Iterator<SelectionKey> keys = selector.selectedKeys().iterator();
+            while (keys.hasNext()) {
+                SelectionKey key = keys.next();
+                keys.remove(); // TODO(day07): this line IS the "clear selectedKeys" trap - keep it
+
+                try {
+                    if (!key.isValid()) {
+                        continue;
+                    }
+                    if (key.isAcceptable()) {
+                        handleAccept(key);
+                    } else if (key.isReadable()) {
+                        handleRead(key);
+                    }
+                } catch (IOException e) {
+                    key.cancel();
+                    closeQuietly(key.channel());
+                }
+            }
+        }
+    }
+
+    /**
+     * TODO(day07): accept the pending connection on {@code key}'s channel, make the accepted
+     * {@link SocketChannel} non-blocking, and register it with {@link #selector} for
+     * {@code OP_READ}.
+     */
+    private void handleAccept(SelectionKey key) throws IOException {
+        SocketChannel clientChannel = serverChannel.accept();
+        clientChannel.configureBlocking(false);
+        clientChannel.register(selector, SelectionKey.OP_READ);
+    }
+
+    /**
+     * TODO(day07): read from {@code key}'s channel into a {@link ByteBuffer}, and write whatever
+     * was read straight back (this is an echo server - no need to parse lines).
+     *
+     * <p>If {@code read()} returns {@code -1}, the peer closed the connection: cancel the key
+     * and close the channel (see {@link #closeQuietly(java.nio.channels.Channel)}).
+     */
+    private void handleRead(SelectionKey key) throws IOException {
+        SocketChannel clientChannel = (SocketChannel) key.channel();
+        ByteBuffer buffer = ByteBuffer.allocate(1024);
+        int bytesRead = clientChannel.read(buffer);
+        if (bytesRead == -1) {
+            key.cancel();
+            closeQuietly(clientChannel);
+        } else {
+            buffer.flip();
+            clientChannel.write(buffer);
+            buffer.clear();
+        }
+    }
+
+    private static void closeQuietly(java.nio.channels.Channel channel) {
+        try {
+            channel.close();
+        } catch (IOException ignored) {
+            // shutting down
+        }
     }
 
     @Override
     public int port() {
-        throw new UnsupportedOperationException("TODO(day07): return the bound port");
+        return port;
     }
 
     @Override
@@ -59,6 +163,9 @@ public final class NioEchoServer implements EchoServer {
 
     @Override
     public void close() {
-        throw new UnsupportedOperationException("TODO(day07): stop the loop and close the channels");
+        running = false;
+        selector.wakeup();
+        closeQuietly(serverChannel);
+        // closeQuietly(selector);
     }
 }
