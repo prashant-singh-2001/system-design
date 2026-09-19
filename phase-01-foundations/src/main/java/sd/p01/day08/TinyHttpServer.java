@@ -1,5 +1,12 @@
 package sd.p01.day08;
 
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpServer;
+
 /**
  * TODO(day08): a tiny HTTP server on the JDK's built-in {@code com.sun.net.httpserver.HttpServer}.
  *
@@ -36,17 +43,44 @@ package sd.p01.day08;
  */
 public final class TinyHttpServer implements AutoCloseable {
 
+    HttpServer server;
+
+
     public TinyHttpServer() {
-        throw new UnsupportedOperationException("TODO(day08): create, route and start the server");
+        try {
+            server = HttpServer.create(new InetSocketAddress(0), 0);
+            server.createContext("/health", exchange -> respond(exchange, 200, "ok"));
+            server.createContext("/echo", exchange -> {
+                String query = exchange.getRequestURI().getQuery();
+                String msg = "";
+                if (query != null && query.startsWith("msg=")) {
+                    msg = query.substring(4);
+                }
+                respond(exchange, 200, msg);
+            });
+            server.createContext("/", exchange -> respond(exchange, 404, "not found"));
+            server.setExecutor(java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor());
+            server.start();
+        } catch (IOException e) {
+            throw new IllegalStateException("Unable to create HTTP server", e);
+        }
     }
 
     /** The ephemeral port actually bound. */
     public int port() {
-        throw new UnsupportedOperationException("TODO(day08): return the bound port");
+        return server.getAddress().getPort();
+    }
+
+    private static void respond(HttpExchange exchange, int status, String body) throws IOException {
+        byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+        exchange.sendResponseHeaders(status, bytes.length);
+        try (var responseBody = exchange.getResponseBody()) {
+            responseBody.write(bytes);
+        }
     }
 
     @Override
     public void close() {
-        throw new UnsupportedOperationException("TODO(day08): stop the server");
+        server.stop(0);
     }
 }

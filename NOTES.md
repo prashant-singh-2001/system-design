@@ -322,3 +322,55 @@ Copy this for each day.
 **Interview angle:** If asked to handle 100,000 concurrent connections, the strong answer names both paths and picks on evidence: "either an event loop, or virtual threads with blocking code — I would start with the second because it is far easier to debug, and move to an event loop only if profiling showed the scheduler was the bottleneck."
 
 **Still fuzzy:** 
+
+---
+
+## Day 8 - HTTP, TCP, and what a connection costs
+
+**Date:** 19th September, 2026 | **Time spent:** 30 Minutes
+
+**What I built:** Small server that accepts 3 kinds of request
+
+**The three questions:**
+
+1. Measured on loopback: ~0.6 ms per-request difference between a fresh connection and a reused one (consistent with Day 1's "same datacenter: ~0.5 ms round trip, handshake ~0.5 ms" — the gap is one handshake RTT).
+
+   Scaling to a cross-country round trip (~40 ms): the per-request overhead doesn't scale from the small loopback number — it becomes the new RTT directly, since the gap is fundamentally "one handshake's round trip," and RTT is what changed:
+
+   `Per-request extra cost ≈ 40 ms`
+
+   For a 300-request page load, opening a fresh connection each time:
+
+   `300 × 40 ms = 12,000 ms = 12 seconds`
+
+   versus a reused connection, which pays that 40 ms exactly once for the whole page.
+
+   What this does to a page load: 12 seconds of pure connection-handshake overhead, before any actual response bytes move — completely unacceptable for a single page. This is the entire justification for connection pooling, HTTP keep-alive, and HTTP/2 multiplexing.
+
+2. What `createContext("/")` gives you: a single mechanism — "does this path start with X" — with one fixed handler per registered prefix.
+
+   What a real router adds:
+   - Method-aware routing (same path, different handler per `GET`/`POST`/`DELETE`)
+   - Path variables (`/users/{id}`) extracted as typed parameters
+   - Deterministic most-specific-match resolution instead of first-prefix-wins
+   - Middleware/interceptor chains (auth, logging, CORS) composed around the handler
+   - Content negotiation and request body parsing/validation integrated into dispatch
+
+   What it costs:
+   - More CPU per request (walking a compiled routing structure — often a trie — plus running a middleware chain), though still microseconds at normal scale
+   - More memory and startup time (building/compiling the routing table)
+   - Harder debugging (which route matched, what order middleware ran)
+
+   The core insight: prefix matching already is the routing algorithm's essence — everything a real router adds is refinement (sharper match criteria) and composition (chained behavior around the match), not a different idea.
+
+3. Little's Law (Day 3): `λ = L / W`
+
+   `λ = 10 connections / 0.05 s = 200 req/s`
+
+   Maximum throughput: 200 requests per second. Beyond that, requests queue for a free connection regardless of how fast the downstream server responds — the pool size is the hard ceiling, exactly like the platform-thread pool ceiling from Day 3/6.
+
+**The trade-off in one line:** Pooled connections hold resources on both ends and go stale. A pooled connection to a server that has silently gone away fails on first use, which is why pools need validation queries and idle timeouts, and why "connection reset" is such a common production error.
+
+**Interview angle:** When you draw a service calling three others, say "I would use pooled, keep-alive connections here — the handshake is a full round trip and at this QPS that is real latency." It shows you are costing the arrows on your diagram, not just drawing them.
+
+**Still fuzzy:**
