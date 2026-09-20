@@ -1,5 +1,11 @@
 package sd.p01.day09;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+
 /**
  * TODO(day09): a compact binary format using {@code DataOutputStream} / {@code DataInputStream}.
  *
@@ -28,12 +34,29 @@ public final class BinaryCodec implements Codec {
 
     @Override
     public byte[] encode(Event event) {
-        throw new UnsupportedOperationException("TODO(day09): implement binary encoding");
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (DataOutputStream out = new DataOutputStream(baos)) {
+            out.writeLong(event.id());
+            out.writeUTF(event.type());
+            out.writeLong(event.timestampMillis());
+            out.writeUTF(event.payload());     
+        } catch (IOException e) {
+            throw new RuntimeException("Unexpected IOException writing to ByteArrayOutputStream", e);
+        }
+        return baos.toByteArray();
     }
 
     @Override
     public Event decode(byte[] bytes) {
-        throw new UnsupportedOperationException("TODO(day09): implement binary decoding");
+        try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(bytes))) {
+            long id = in.readLong();
+            String type = in.readUTF();
+            long timestampMillis = in.readLong();
+            String payload = in.readUTF();
+            return new Event(id, type, timestampMillis, payload);
+        } catch (IOException e) {
+            throw new RuntimeException("Unexpected IOException reading from byte array", e);
+        }
     }
 
     @Override

@@ -15,7 +15,7 @@ Streak rule: missing a day is fine, missing two in a row is the thing to avoid.
 - [x] **Day 6** - Virtual threads vs platform threads for blocking work.
 - [x] **Day 7** - Blocking vs non-blocking I/O, and what a Selector actually buys.
 - [x] **Day 8** - HTTP over TCP; what opening a connection really costs.
-- [ ] **Day 9** - Wire formats: size, speed, schema evolution.
+- [x] **Day 9** - Wire formats: size, speed, schema evolution.
 - [ ] **Day 10** - **Phase review.** A full capacity estimate, defended.
 
 ## Phase 2 (days 11-20)

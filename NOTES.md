@@ -374,3 +374,57 @@ Copy this for each day.
 **Interview angle:** When you draw a service calling three others, say "I would use pooled, keep-alive connections here — the handshake is a full round trip and at this QPS that is real latency." It shows you are costing the arrows on your diagram, not just drawing them.
 
 **Still fuzzy:**
+
+---
+
+## Day 9 - Wire formats
+
+**Date:** 20th September, 2026 | **Time spent:** 32 Min
+
+**What I built:** Two codec
+
+**The three questions:**
+
+1. Measured sizes:
+
+   | Format | Size | Ratio to binary |
+   |---|---|---|
+   | Binary | 75 bytes | 1.0x |
+   | JSON | 133 bytes | 1.8x |
+   | Java serialization | 182 bytes | 2.4x |
+
+   Extra bytes per event using JSON instead of binary: `133 − 75 = 58 bytes`
+
+   At 1M events/sec:
+   - `58 bytes × 1,000,000 events/s = 58,000,000 bytes/s ≈ 58 MB/s` of pure waste
+   - Per day: `58 MB/s × 86,400 s ≈ 5.0 TB/day`
+   - Per year: `5.0 TB/day × 365 ≈ 1.83 PB/year`
+
+   That's the real number: ~1.8 petabytes of extra annual bandwidth just from choosing JSON over binary at this event rate. That's the kind of number that turns "binary is smaller" from a nice-to-know into a line item a VP would ask about.
+
+2. You prefix each field with a small numeric tag identifying which field it is, plus enough information for a reader to know how many bytes to skip even if it doesn't recognize the tag:
+
+   ```
+   [tag=1][value: id]
+   [tag=2][value: type]
+   [tag=3][value: timestampMillis]
+   [tag=4][value: payload]
+   [tag=5][value: newField]   <- added later
+   ```
+
+   Why this solves the problem completely:
+   - An old reader that doesn't know about tag 5 simply doesn't have a case for it in its switch statement — but because the field is length-prefixed (or a fixed known size for its type), the old reader can skip exactly that many bytes and keep reading the fields it does understand. Nothing breaks.
+   - A new reader given an old message (no tag 5 present) just never sees that tag and uses a default value for the new field.
+   - Field order no longer matters at all — you could write tag 4 before tag 2 and it'd still decode correctly, because the reader identifies fields by tag, not position.
+
+   This is literally Protobuf's wire format: every field is `(tag_number << 3 | wire_type)` followed by a value, where the wire type (varint, length-delimited, fixed32/64) tells any reader — even one that's never heard of that tag — exactly how many bytes to skip. That's the one rule that makes "add a field" safe and "the format evolves" possible, which is the whole reason Protobuf/Avro/Thrift exist instead of everyone hand-rolling `BinaryCodec`-style positional formats.
+
+3. Public API → JSON. Driven by two things: (1) you don't control the clients — any language must be able to read it, and you can't force every external consumer to redeploy in lockstep with you, so "adding a field doesn't break old readers" matters enormously; (2) humans need to debug it — `curl` and `cat` should show you something readable.
+
+   Internal event bus → compact binary (in practice, Protobuf/Avro, not a raw positional format). Driven by: (1) you control both ends, so you can coordinate schema/version changes across producer and consumer without breaking anyone external; (2) at high volume, the bandwidth and CPU savings are real money — repeated field names and text-encoded numbers are pure waste at a million events/second, as the Q1 math just showed.
+
+**The trade-off in one line:** You're choosing between bytes on the wire and the ability to change your mind later — internal high-volume paths can afford a schema and its coordination cost, public APIs usually can't.
+
+**Interview angle:** "JSON at the edge for compatibility and debuggability, Protobuf or Avro internally for density and schema evolution" is the answer — but only convincing when you can say *why* each side needs what it needs, not as a memorised pairing.
+
+**Still fuzzy:**
