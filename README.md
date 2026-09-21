@@ -126,3 +126,12 @@ All ninety days: briefs, starter code and failing tests.
 
 Infra-backed days start their own containers via Testcontainers, so `mvn test` stays the only
 command you type - the Docker daemon just has to be running.
+
+## Contributing
+
+Found a factual error in a brief, a flaky test, or broken tooling? See
+[CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+[MIT](LICENSE)
