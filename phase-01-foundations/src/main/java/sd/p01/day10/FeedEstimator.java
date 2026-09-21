@@ -22,7 +22,7 @@ public final class FeedEstimator {
      * of accounts with millions of followers.
      */
     public static long fanoutWritesPerSecond(long postsPerSecond, long averageFollowers) {
-        throw new UnsupportedOperationException("TODO(day10): implement fanoutWritesPerSecond");
+        return postsPerSecond * averageFollowers;
     }
 
     /**
@@ -32,7 +32,7 @@ public final class FeedEstimator {
      * <p>Return {@code totalItems x bytesPerItem x hotFraction}.
      */
     public static long hotDatasetBytes(long totalItems, int bytesPerItem, double hotFraction) {
-        throw new UnsupportedOperationException("TODO(day10): implement hotDatasetBytes");
+        return (long) (totalItems * bytesPerItem * hotFraction);
     }
 
     /**
@@ -43,12 +43,12 @@ public final class FeedEstimator {
      * than as a capacity decision.
      */
     public static int serversNeeded(long totalBytes, long bytesPerServer) {
-        throw new UnsupportedOperationException("TODO(day10): implement serversNeeded");
+        return (int) Math.ceil((double) totalBytes / bytesPerServer);
     }
 
     /** TODO(day10): the same rounding-up logic applied to request throughput. */
     public static int appServersNeeded(long peakQps, long qpsPerServer) {
-        throw new UnsupportedOperationException("TODO(day10): implement appServersNeeded");
+        return (int) Math.ceil((double) peakQps / qpsPerServer);
     }
 
     /**
@@ -63,6 +63,6 @@ public final class FeedEstimator {
      * design interview.
      */
     public static boolean useFanoutOnRead(long followerCount, long threshold) {
-        throw new UnsupportedOperationException("TODO(day10): implement useFanoutOnRead");
+        return followerCount > threshold;
     }
 }

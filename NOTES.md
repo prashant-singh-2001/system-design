@@ -428,3 +428,60 @@ Copy this for each day.
 **Interview angle:** "JSON at the edge for compatibility and debuggability, Protobuf or Avro internally for density and schema evolution" is the answer — but only convincing when you can say *why* each side needs what it needs, not as a memorised pairing.
 
 **Still fuzzy:**
+
+---
+
+## Day 10 - Phase review: estimate a feed
+
+**Date:** 21st September, 2026 | **Time spent:** 34 Min
+
+**What I built:** Feed Estimator
+
+**The three questions:**
+
+1. ~100,000 followers, defended with actual numbers rather than a feeling:
+
+   Assume a dedicated fanout-worker pool — say 10 workers, each capable of ~5,000 writes/s (the same per-server throughput figure used for app servers in this exercise), giving an aggregate fanout capacity of `10 × 5,000 = 50,000 writes/s`.
+
+   For a single post's fanout to complete within a reasonable propagation window — say 2 seconds, so it doesn't back up behind the next post from the same or another account — the followers that pool can absorb in that window is:
+
+   `50,000 writes/s × 2s = 100,000 followers`
+
+   Above that, a single post's fanout either takes uncomfortably long (queues build up, followers see the post late) or requires proportionally more dedicated capacity just to serve outlier accounts — capacity that sits mostly idle the rest of the time. That's the actual trade being made: below ~100,000 followers, fanout-on-write finishes fast enough to be invisible; above it, the write burst from one post becomes disproportionate to the value of serving that one account via the write path.
+
+2. If the real distribution is 99/1 (more skewed than 80/20):
+
+   Counterintuitively, your total cache capacity is actually over-provisioned — you'd only need to cache the top ~1% of items to capture 99% of traffic, far less memory than the 20% you sized for. So raw capacity isn't what breaks.
+
+   What does break is hot-key/hot-partition load: extreme skew concentrates enormous traffic onto a tiny number of individual items. If those few ultra-hot items land on the same cache shard or node, that single node gets overwhelmed regardless of how much total cluster capacity you have — the same "shard the hot resource" lesson from Day 6 (`LongAdder`), just one level up the stack. Aggregate sizing looks fine on paper while one node melts under real traffic.
+
+   If the real distribution is 50/50 (traffic roughly uniform, not skewed at all):
+
+   Here the opposite problem hits: caching only 20% of the dataset only captures roughly 20% of traffic, not 80%, because there's no concentration to exploit — every item is about equally likely to be requested. Your hit rate collapses, most reads fall through to the backing store, and the cache stops paying for itself. In this regime you either need to cache almost everything (expensive) or abandon caching as the primary strategy and lean on read replicas / horizontal read scaling of the backing store instead — a fundamentally different architecture.
+
+   The takeaway: the 80/20 rule is a measured assumption, not a law of nature. It directly decides both how much cache memory to buy and whether caching is even the right lever to pull — so in a real system you'd validate it against an actual access-frequency histogram before sizing anything.
+
+3. I'd stop treating "writes" as one undifferentiated number.
+
+   Day 2 computed write QPS as 4,000/s — the rate of users creating posts (the logical write rate). But Day 10 reveals that once fanout-on-write is in the picture, the physical write rate against the feed-storage layer is 800,000/s — 200x higher. Those are two different numbers answering two different architectural questions, and Day 2's estimate only captured one of them.
+
+   Concretely, I'd now split the estimate into:
+   - Primary write rate (4,000/s) — what sizes the posts table / source-of-truth storage.
+   - Fanout write rate (800,000/s) — what actually sizes the feed-cache/index layer, and what tells you whether a single database can handle writes at all or whether you need sharding, queuing, or a hybrid strategy from day one.
+
+   Day 2's storage estimate also only accounted for primary post records (300 bytes × writes/day) — it never accounted for the denormalized feed-index copies fanout-on-write creates, which could be a much larger storage line item depending on whether feeds store full copies or lightweight references. I'd now estimate primary storage and feed-index storage as two separate rows, not one combined "storage per year" figure — because they're sized by completely different quantities (post count vs. post-count × average-followers).
+
+**The trade-off in one line:** Fanout-on-write and fanout-on-read each have real downsides, so the hybrid combines them — at the cost of two code paths and a threshold to tune, forever.
+
+**Interview angle:** The fanout number is the pivot of any feed question. Get to it early: "before I choose fanout-on-write, let me check the write amplification — 4,000 posts/s times 200 average followers is 800,000 writes/s, which is significant but tractable. The problem is the tail: a 50-million-follower account makes one post into 50 million writes. So I would go hybrid." That is a complete, defensible design position in about twenty seconds.
+
+**Still fuzzy:**
+
+---
+
+## Phase 1 retrospective
+
+- **Three numbers I'll still remember in six months:** 58 extra bytes per event (JSON vs. binary) compounds to 5 TB/day at 1M events/sec; a 15% rounding error in an estimate can be noise or can flip a decision, depending on how close you are to the threshold; virtual threads gave at least a 22x speedup on blocking I/O, but zero benefit on CPU-bound work.
+- **The one idea that genuinely surprised me:** how much cheaper binary is than JSON (1.8x smaller) even though JSON is paying for something real — field names on the wire buy you human-readability and schema flexibility, not nothing. The gap felt larger than the "convenience tax" I expected.
+- **Still fuzzy, carrying into Phase 2:** [name the specific thing here, e.g. "when exactly connection-pool validation queries fire" or "the mechanics of field-tag skipping in Protobuf's wire format" — a generic "some questions" won't be retrievable in six months, which defeats the point of writing it down]
+
