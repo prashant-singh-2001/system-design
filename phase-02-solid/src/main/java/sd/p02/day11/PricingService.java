@@ -19,14 +19,26 @@ package sd.p02.day11;
 public final class PricingService {
 
     public long subtotalCents(Order order) {
-        throw new UnsupportedOperationException("TODO(day11): implement subtotalCents");
+        long subtotal = 0;
+        for (OrderLine line : order.lines()) {
+            subtotal += line.quantity() * line.unitPriceCents();
+        }
+        return subtotal;
     }
 
     public long discountedSubtotalCents(Order order) {
-        throw new UnsupportedOperationException("TODO(day11): implement discountedSubtotalCents");
+        long subtotal = subtotalCents(order);
+        long discounted = subtotal;
+       if ("SAVE10".equals(order.couponCode())) {
+            discounted = subtotal - (subtotal / 10);
+        }
+        return discounted;
     }
 
     public long totalCents(Order order) {
-        throw new UnsupportedOperationException("TODO(day11): implement totalCents");
+        long discounted = discountedSubtotalCents(order);
+        long tax = discounted * 20 / 100; // 20% tax
+        long shipping = discounted >= 5000 ? 0 : 499;
+        return discounted + tax + shipping;
     }
 }

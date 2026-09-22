@@ -15,12 +15,12 @@ Design documents go in `phase-09-hld-capstone/designs/`.
 
 ---
 
-## Template
+### Template
 
 Copy this for each day.
 
 ```
-## Day N - <title>
+### Day N - <title>
 
 **Date:** | **Time spent:**
 
@@ -40,7 +40,7 @@ Copy this for each day.
 
 ---
 
-## Day 1 - The memory hierarchy, measured
+### Day 1 - The memory hierarchy, measured
 
 **Date:** 9th of September, 2026 | **Time spent:** 35 Mins
 
@@ -59,7 +59,7 @@ Copy this for each day.
 
 ---
 
-## Day 2 - Back-of-the-envelope estimation
+### Day 2 - Back-of-the-envelope estimation
 
 **Date:** 10th September, 2026 | **Time spent:** 32 Minutes
 
@@ -78,7 +78,7 @@ Copy this for each day.
 
 ---
 
-## Day 3 - Little's Law and the queueing knee
+### Day 3 - Little's Law and the queueing knee
 
 **Date:** 11th September, 2026 | **Time spent:** 28 Min
 
@@ -100,7 +100,7 @@ Copy this for each day.
 
 ---
 
-## Day 4 - The JVM memory model
+### Day 4 - The JVM memory model
 
 **Date:** 15th September, 2026 | **Time spent:** 15 Mins
 
@@ -184,7 +184,7 @@ Copy this for each day.
 
 ---
 
-## Day 5 - Four ways to count, and what each costs
+### Day 5 - Four ways to count, and what each costs
 
 **Date:** 16th September, 2026 | **Time spent:** 22 Minutes
 
@@ -222,7 +222,7 @@ Copy this for each day.
 
 ---
 
-## Day 6 - Virtual Threads
+### Day 6 - Virtual Threads
 
 **Date:** 17th September, 2026 | **Time spent:** 10 Min
 
@@ -273,7 +273,7 @@ Copy this for each day.
 
 ---
 
-## Day 7 - Blocking vs non-blocking I/O
+### Day 7 - Blocking vs non-blocking I/O
 
 **Date:** 18th September, 2026 | **Time spent:** 32 Minutes
 
@@ -325,7 +325,7 @@ Copy this for each day.
 
 ---
 
-## Day 8 - HTTP, TCP, and what a connection costs
+### Day 8 - HTTP, TCP, and what a connection costs
 
 **Date:** 19th September, 2026 | **Time spent:** 30 Minutes
 
@@ -377,7 +377,7 @@ Copy this for each day.
 
 ---
 
-## Day 9 - Wire formats
+### Day 9 - Wire formats
 
 **Date:** 20th September, 2026 | **Time spent:** 32 Min
 
@@ -431,7 +431,7 @@ Copy this for each day.
 
 ---
 
-## Day 10 - Phase review: estimate a feed
+### Day 10 - Phase review: estimate a feed
 
 **Date:** 21st September, 2026 | **Time spent:** 34 Min
 
@@ -485,3 +485,36 @@ Copy this for each day.
 - **The one idea that genuinely surprised me:** how much cheaper binary is than JSON (1.8x smaller) even though JSON is paying for something real — field names on the wire buy you human-readability and schema flexibility, not nothing. The gap felt larger than the "convenience tax" I expected.
 - **Still fuzzy, carrying into Phase 2:** [name the specific thing here, e.g. "when exactly connection-pool validation queries fire" or "the mechanics of field-tag skipping in Protobuf's wire format" — a generic "some questions" won't be retrievable in six months, which defeats the point of writing it down]
 
+---
+
+### Day 11 - Single Responsibility
+
+**Date:** 22nd September, 2026 | **Time spent:** 
+
+**What I built:** Split `LegacyOrderProcessor` into `PricingService`, `OrderValidator`, and a coordinating `OrderProcessor`
+
+**The three questions:**
+
+1. New (`PricingService`): 2 lines of setup — `new PricingService()` plus a sample `Order`. No fakes, no infrastructure, and each calculation step (`subtotalCents`, `discountedSubtotalCents`, `totalCents`) is independently assertable.
+
+   Legacy (`LegacyOrderProcessor`): can't test pricing in isolation at all — `process()` bundles validation, pricing, persistence, and notification into one call. To check a tax calculation you'd need an `Order` that satisfies every validation rule, and you'd only ever see the final `total` — subtotal, discount, tax, and shipping are local variables, never individually observable. In a real system (not this toy version's in-memory fakes) that also means standing up a real database and email server just to check tax math.
+
+   The real difference isn't line count — it's coupling and observability. The old design forces you through four unrelated concerns to test one; the new design isolates the one thing you're testing and exposes every intermediate step.
+
+2. | Change | File(s) touched |
+   |---|---|
+   | Tax rate → 22% | `PricingService.java` only |
+   | Switch to DynamoDB | A new `OrderRepository` implementation only — the interface and `OrderProcessor` are untouched |
+   | Confirmations → SMS | A new `ConfirmationSender` implementation only |
+
+   `OrderProcessor` changes in none of these cases — that's the payoff of constructor-injecting the validator, pricing service, and both ports as abstractions rather than concrete logic. Each of the four forces of change (rules, finance, platform, marketing) now has exactly one file that's theirs to touch.
+
+3. No — calling four collaborators isn't the same as having four reasons to change. SRP is about forces that can independently demand a change, not dependency count.
+
+   `OrderProcessor`'s single reason to change is the shape of the workflow itself — adding a step (e.g. a fraud check before pricing), reordering steps, or adding workflow-level concerns like a rollback if persistence fails after pricing succeeds. That's distinct from *what* validation checks, *how* tax is computed, *where* orders are stored, or *how* confirmations are sent — none of which touch this class. It "does four things" only in the trivial sense of calling four methods; it has exactly one reason to change.
+
+**The trade-off in one line:** Splitting buys testability and isolates each team's changes, but costs more files and indirection — split along the lines where change actually arrives, not on principle alone.
+
+**Interview angle:** "What would have to change for this class to change?" is a sharper design-review question than "does this class do one thing?" — it produces an answer you can act on, like the file-touch table above.
+
+**Still fuzzy:**
