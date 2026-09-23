@@ -10,6 +10,14 @@ public final class DhlStrategy implements ShippingStrategy {
 
     @Override
     public long quoteCents(Shipment shipment) {
-        throw new UnsupportedOperationException("TODO(day12): move the DHL rules here");
+        long quote = 800;
+        quote += 150 * shipment.weightKg();
+        if (!shipment.destinationCountry().equals("GB")) {
+            quote += 400;
+        }
+        if (shipment.express()) {
+            quote += 1200;
+        }
+        return quote;
     }
 }

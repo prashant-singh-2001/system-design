@@ -518,3 +518,28 @@ Copy this for each day.
 **Interview angle:** "What would have to change for this class to change?" is a sharper design-review question than "does this class do one thing?" — it produces an answer you can act on, like the file-touch table above.
 
 **Still fuzzy:**
+
+---
+
+### Day 12 - Open/Closed
+
+**Date:** 23rd September, 2026 | **Time spent:** 22 Minutes
+
+**What I built:** A shipment calculator with independent carrier strategies — the calculator doesn't have to be modified to add a new carrier
+
+**The three questions:**
+
+1. No files were touched apart from registering `DRONE` itself — it's added inline as a lambda, with zero edits to any existing carrier or to `ShippingCalculator`. In the legacy design, adding `DRONE` would require editing `LegacyShippingCalculator.quoteCents()` directly — a new `else if` branch in the same shared method every other carrier lives in, forcing a re-review and re-test of the whole file just to add one case.
+
+2. In my gamified tracker project, there are several types of logs, but the set is fixed and closed — new log types don't arrive from outside my control the way a new shipping carrier arrives from a partner integration. A strategy registry there would be over-engineering: I'd be paying the "five files instead of one" cost for an axis of change that isn't actually moving. What distinguishes it from the carrier case is who can demand a new case and how often — carriers are added by external partners on their own schedule; my log types are added (rarely) by me, deliberately, with no unpredictable external pressure. When I can confidently say the set is closed and I control it, a plain `if/else` or `switch` stays correct.
+
+3. In a real application, the registry is populated one of three ways, each trading something different:
+   - Hard-coded defaults (what `withDefaults()` does here) — simple and type-safe, but a new carrier still needs a code change and redeploy, just a safer, additive one.
+   - A config file mapping carrier name to implementation — lets ops add a carrier without a code deploy, and supports different carrier sets per tenant/region, but loses compile-time safety (a typo'd class name fails at runtime) and usually needs reflection to wire up.
+   - Classpath scanning (e.g. an annotation the framework scans for at startup) — true zero-touch extension, drop a JAR in and the carrier appears, but it's "magic": harder to trace where a carrier actually gets registered by reading code, and startup pays a scanning cost.
+
+**The trade-off in one line:** OCP buys additive extension — write a class, register it — but spreads logic across five files instead of one; worth paying only at the axis of change you actually expect, not by default everywhere.
+
+**Interview angle:** Phrase it around the axis of change: "I expect new carriers, so I make carrier a strategy. I don't expect new order states, so those stay an enum with a switch." That shows you're choosing per case, not applying OCP as a blanket rule.
+
+**Still fuzzy:**

@@ -1,5 +1,8 @@
 package sd.p02.day12;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * TODO(day12): the calculator, now closed to modification.
  *
@@ -21,15 +24,26 @@ package sd.p02.day12;
  */
 public final class ShippingCalculator {
 
+    Map<String, ShippingStrategy> registry = new HashMap<>();
+
     public static ShippingCalculator withDefaults() {
-        throw new UnsupportedOperationException("TODO(day12): register the three built-in carriers");
+        return new ShippingCalculator()
+                .register("PICKUP", new PickupStrategy())
+                .register("DHL", new DhlStrategy())
+                .register("ROYAL_MAIL", new RoyalMailStrategy());
     }
 
     public ShippingCalculator register(String carrier, ShippingStrategy strategy) {
-        throw new UnsupportedOperationException("TODO(day12): add the strategy to the registry");
+        registry.put(carrier, strategy);
+        return this;
     }
 
     public long quoteCents(Shipment shipment) {
-        throw new UnsupportedOperationException("TODO(day12): look up the strategy and delegate");
+        ShippingStrategy strategy = registry.get(shipment.carrier());
+        if (strategy == null) {
+            throw new IllegalArgumentException("unknown carrier: " + shipment.carrier());
+        }
+        return strategy.quoteCents(shipment);
+    
     }
 }

@@ -21,7 +21,7 @@ Streak rule: missing a day is fine, missing two in a row is the thing to avoid.
 ## Phase 2 (days 11-20)
 
 - [x] **Day 11** - **SRP** - one reason to change. Learn to spot a god class.
-- [ ] **Day 12** - **OCP** - extend without editing.
+- [x] **Day 12** - **OCP** - extend without editing.
 - [ ] **Day 13** - **LSP** - subtypes must honour supertype contracts.
 - [ ] **Day 14** - **ISP** - no client should depend on methods it ignores.
 - [ ] **Day 15** - **DIP** - depend on abstractions; own your boundaries.
