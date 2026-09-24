@@ -22,7 +22,7 @@ Streak rule: missing a day is fine, missing two in a row is the thing to avoid.
 
 - [x] **Day 11** - **SRP** - one reason to change. Learn to spot a god class.
 - [x] **Day 12** - **OCP** - extend without editing.
-- [ ] **Day 13** - **LSP** - subtypes must honour supertype contracts.
+- [x] **Day 13** - **LSP** - subtypes must honour supertype contracts.
 - [ ] **Day 14** - **ISP** - no client should depend on methods it ignores.
 - [ ] **Day 15** - **DIP** - depend on abstractions; own your boundaries.
 - [ ] **Day 16** - Composition over inheritance; value objects; immutability.

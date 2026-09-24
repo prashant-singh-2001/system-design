@@ -1,5 +1,6 @@
 package sd.p02.day13;
 
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -37,7 +38,12 @@ public final class BoundedStore implements KeyValueStore {
     @Override
     public void put(String key, String value) {
         if (entries.size() >= capacity && !entries.containsKey(key)) {
-            return;                 // <-- the bug. Accepts the call, drops the data.
+            Iterator<Map.Entry<String, String>> it = entries.entrySet().iterator();
+            if (it.hasNext()) {
+                it.next();
+                it.remove();
+            }           
+            
         }
         entries.put(key, value);
     }

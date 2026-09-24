@@ -543,3 +543,42 @@ Copy this for each day.
 **Interview angle:** Phrase it around the axis of change: "I expect new carriers, so I make carrier a strategy. I don't expect new order states, so those stay an enum with a switch." That shows you're choosing per case, not applying OCP as a blanket rule.
 
 **Still fuzzy:**
+
+
+---
+
+### Day 13 - Liskov Substitution
+
+**Date:** 24th September, 2026 | **Time spent:** 12 Minutes
+
+**What I built:** Bounded Store which stores latest entries to a capacity and is easy to extend.
+
+**The three questions:**
+
+1. What else would have caught the silent write drop before production, other than the contract test:
+   - A round-trip integration test — write a value, then immediately read it back and assert equality, run under a scenario that fills the store past capacity. This would have caught it directly, no contract or interface change needed.
+   - A code-review checklist item — "does every `put`-like call site check its return value / handle failure?"
+   - Production monitoring — a metric comparing "writes attempted" vs. "keys present in store" would surface silent drops immediately.
+   - Static analysis — a linter flagging ignored non-void return values, though this only helps *after* `put` is changed to return something; a `void put(...)` gives it nothing to flag.
+
+2. Signature change: `void put(K, V)` → `boolean put(K, V)`, returning `false` when the store is full and the write is rejected.
+
+   This mirrors a real Java precedent: `Queue.add()` throws when full ("capacity exceeded is exceptional"), while `Queue.offer()` returns `false` ("capacity exceeded is a routine, expected outcome"). A bounded store being full is exactly the latter — it's the entire point of being bounded, not an exceptional condition.
+
+   I prefer the boolean-return design: `false` gives the caller *information* to act on (evict something, retry, log, drop silently on purpose), whereas an exception forces every call site into catch-and-handle for something that will happen constantly by design.
+
+3. Yes — this is a Liskov violation, and the compiler cannot catch it.
+
+   `Optional<String> get(String)` carries an implicit contract: callers always receive a non-null `Optional`, which they can safely call `.isPresent()`, `.map(...)`, or `.orElse(...)` on without ever null-checking the `Optional` itself — that's the entire reason `Optional` exists.
+
+   A subtype returning literal `null` instead of `Optional.empty()` weakens that postcondition. It compiles perfectly — `null` is assignable to any reference type — but any caller who correctly trusted the contract (chaining `.map()` or calling `.isPresent()` without a null guard) gets a `NullPointerException` the moment this implementation is substituted in. That's exactly what the concept section warns about: "the compiler enforces the SHAPE of an interface. It cannot enforce the BEHAVIOUR." The shape (`Optional<String>`) is honored; the behavioral promise (non-null, always) is not.
+
+   A contract test would catch this in one line (`assertThat(store.get("missing-key")).isNotNull()`) and hold every implementation, present and future, to it automatically.
+
+**The trade-off in one line:** A precise contract constrains implementers — say too much and you rule out legitimate implementations (e.g. "all keys retained forever" would ban bounded stores entirely); say too little and substitutability means nothing. Getting that line right is genuine design work.
+
+**Interview angle:** The square/rectangle example is fine but abstract — a sharper answer names a real incident: "our read-through cache implemented the repository interface but returned stale data, so callers relying on read-your-writes broke; we wrote a contract test for the interface and ran it against every implementation." That's Liskov as an operational concern, which is what it actually is.
+
+**Still fuzzy:**
+
+---
