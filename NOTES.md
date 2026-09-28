@@ -582,3 +582,27 @@ Copy this for each day.
 **Still fuzzy:**
 
 ---
+
+### Day 14 - Interface Segregation
+
+**Date:** 28th of September, 2026 | **Time spent:** 25 Minutes
+
+**What I built:** Segregated a heavy User Repo interface into role specific interfaces.
+
+**The three questions:**
+
+1. Before: 12 methods (`LegacyUserRepository`). After: 4 methods (`UserReader`) — `findById`, `findByEmail`, `findAllActive`, `count`. Nothing about writes, admin, or maintenance needs to be implemented or even thought about.
+
+2. The exact mechanism: a fat interface (`LegacyUserRepository`) forces every implementor to provide a body for all twelve methods, regardless of role. A legitimate read-only implementor (`ReadOnlyUserCache`) has no sensible behavior for `vacuum()` — there's nothing to vacuum in an in-memory cache. Java requires the method be implemented anyway, so the only options are to throw (`UnsupportedOperationException`) or fake success with a no-op. Either one breaks Liskov: the supertype implicitly promises "calling any of these twelve methods succeeds," and a caller holding a `LegacyUserRepository` reference who calls `.vacuum()` reasonably expects it to work — but this implementation throws where success was promised. So the chain is: **fat interface → forces implementation of irrelevant methods → no sensible behavior exists for them → throwing/faking to satisfy the compiler → substitutability breaks.** ISP violations don't just correlate with LSP violations, they cause them, because segregation removes the irrelevant method from the type entirely instead of leaving it to be implemented badly.
+
+3. Take `UserReader` and `EmailSender` as two separate constructor dependencies, not one `UserService` facade — unless reading-the-user-then-emailing-them is itself a single cohesive, atomic operation in your domain (e.g. it needs its own transactional or rate-limiting guarantees), in which case a purpose-built facade for *that specific operation* is fine.
+
+   **What decides it:** whether the two capabilities are cohesive as one operation, or just two unrelated things a class happens to need. Bundling them into one facade by default recreates the exact fat-interface problem from today's exercise — every consumer that only needs to read users would also depend on email-sending capability, and vice versa, and a test double for one concern would have to stub the other. Taking both dependencies separately keeps each role visible at the type level: a component holding only a `UserReader` provably cannot send email.
+
+**The trade-off in one line:** More interfaces to name and longer `implements` clauses for components that legitimately do everything — modest costs, but segregate too finely and you get a dozen single-method interfaces nobody can keep straight.
+
+**Interview angle:** "We split the repository by role, so the read path takes a `UserReader` and literally cannot write — it stopped being a code-review rule and became a compile error." A specific, checkable outcome is what makes that answer credible.
+
+**Still fuzzy:**
+
+---

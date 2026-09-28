@@ -10,4 +10,7 @@ package sd.p02.day14;
  * </pre>
  */
 public interface UserWriter {
+    void save(User user);
+    void delete(String id);
+    void updateEmail(String id, String email);
 }

@@ -1,5 +1,8 @@
 package sd.p02.day14;
 
+import java.util.List;
+import java.util.Optional;
+
 /**
  * TODO(day14): the read-only role. Declare exactly these four methods, copied verbatim from
  * {@link LegacyUserRepository}:
@@ -16,4 +19,8 @@ package sd.p02.day14;
  * "what does each caller actually need".
  */
 public interface UserReader {
+    Optional<User> findById(String id);
+    Optional<User> findByEmail(String email);
+    List<User> findAllActive();
+    long count();
 }

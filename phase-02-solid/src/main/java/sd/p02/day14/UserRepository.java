@@ -11,5 +11,5 @@ package sd.p02.day14;
  * gets harder. But every CONSUMER can now depend on the narrowest role it needs, and a
  * component that takes a {@code UserReader} is provably incapable of writing.
  */
-public interface UserRepository {
+public interface UserRepository extends UserReader, UserWriter, UserAdmin {
 }
