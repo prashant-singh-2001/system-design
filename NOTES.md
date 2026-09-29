@@ -606,3 +606,45 @@ Copy this for each day.
 **Still fuzzy:**
 
 ---
+
+
+### Day 15 - Dependency Inversion
+
+**Date:** 29th September, 2026 | **Time spent:** 29 Minutes
+
+**What I built:** Deconstructed a JDBC-direct calculating service into a purely arithmetic service depending on just a list of sale objects
+
+**The three questions:**
+
+1. DIP's actual mechanism is: the high-level module depends on an abstraction it owns, not a concrete implementation it doesn't. "Testability" isn't a separate payoff of that mechanism — it's the exact same substitutability, just exercised at a different time and for a different reason.
+
+   Swapping `JdbcSalesDataSource` for `() -> SALES` in a test and swapping it for `CsvSalesDataSource` or `HttpSalesDataSource` in production are the same operation: replacing whatever sits behind `SalesDataSource` without touching `ReportService`. Test-time substitution just happens to be the substitution you exercise constantly (every test run) and the one you notice first, because it's immediate and free of infrastructure — but it's not a different capability from the "swap Postgres for DynamoDB" flexibility the concept section describes. If you can plug in a fake for testing, you can, by the same mechanism, plug in a different real implementation for deployment. They're one axis — pluggability through an owned abstraction — described from two vantage points.
+
+2. The problem: `List<Sale> findSales()` forces the entire result set to materialize in memory before `ReportService` can do anything — at 10 million rows, that's a serious memory/GC problem, and there's no way to start processing before the whole list loads.
+
+   What I'd change: the port's return type, to something that streams rather than materializes everything at once — `Stream<Sale> findSales()` is the natural JDK choice (lazy, closeable, short-circuitable), or a cursor/pagination-based signature (`List<Sale> findSales(int offset, int limit)`) if the caller needs explicit control over batching.
+
+   Does this threaten the abstraction? Only partially, and it's worth being precise about which part:
+   - The port itself survives cleanly. `Stream<Sale>` is still a general-purpose JDK type with zero JDBC leakage — no `ResultSet`, no `Connection`, no `SQLException` — so the "nothing about persistence may leak into the port" rule from the concept section still holds.
+   - But the caller's contract genuinely changes. A `Stream` can only be consumed once and must be closed (try-with-resources), so `ReportService`'s grouping/sorting logic has to adapt from simple list operations to stream-based ones, possibly needing to collect into intermediate structures if it needs multiple passes over the data.
+   - The deeper tension: at real scale, there's pressure to push the grouping/summing itself down into the data source (e.g., a DB-side `GROUP BY SUM`) rather than doing it in `ReportService`. That would be faster, but it re-couples domain logic (how we report on sales) with a specific infrastructure capability (SQL aggregation) — exactly the coupling DIP was introduced to remove. So the honest answer is: the interface can evolve without breaking the abstraction, but the temptation the scale creates is real, and giving in to it would undo the inversion.
+
+3. With `ReportService` — the domain side — not with the JDBC implementation.
+
+   This is the literal meaning of "the domain writes the job description; infrastructure applies for the job" from the concept section: the port belongs to whoever needs it, and the implementation depends on the port's location, never the reverse.
+
+   Why it matters, concretely: package/module placement is what makes the dependency direction physically enforceable, not just a naming convention. If `SalesDataSource` lived in the JDBC package instead:
+   - `ReportService` (pure domain arithmetic) would need the JDBC module on its classpath just to see the interface, even though the interface's signature has nothing JDBC-specific in it.
+   - Build tooling would show a dependency edge from domain → infrastructure, which is precisely the wrong-direction dependency DIP exists to eliminate.
+   - You couldn't compile, test, or ship the domain logic in isolation — you'd always be dragging the JDBC module along.
+   - Adding `CsvSalesDataSource` (the Stretch goal) would awkwardly require depending on the JDBC module too, purely to reach the interface it's supposed to be an alternative to.
+
+   Placing the port with the domain makes the inversion physically real, not just conceptual: infrastructure modules depend on the domain module (to implement its ports), and the domain module depends on nothing infrastructure-related. That's a rule a build tool — or an architecture fitness function, which is exactly what Day 17's hexagonal architecture will formalize — can mechanically verify: "the domain package imports nothing from any infrastructure package."
+
+**The trade-off in one line:** An extra interface per boundary, and the wiring has to happen somewhere (a composition root or DI container) — worth it at real boundaries like storage, network, clock, and randomness, but ceremony rather than design for a pure function you'll never replace.
+
+**Interview angle:** "The domain declares the port and infrastructure implements it, so the dependency arrow points inward." It sets up Day 17's hexagonal architecture and signals that you understand the direction, not just the indirection.
+
+**Still fuzzy:**
+
+---

@@ -24,7 +24,7 @@ Streak rule: missing a day is fine, missing two in a row is the thing to avoid.
 - [x] **Day 12** - **OCP** - extend without editing.
 - [x] **Day 13** - **LSP** - subtypes must honour supertype contracts.
 - [x] **Day 14** - **ISP** - no client should depend on methods it ignores.
-- [ ] **Day 15** - **DIP** - depend on abstractions; own your boundaries.
+- [x] **Day 15** - **DIP** - depend on abstractions; own your boundaries.
 - [ ] **Day 16** - Composition over inheritance; value objects; immutability.
 - [ ] **Day 17** - Hexagonal architecture - ports and adapters.
 - [ ] **Day 18** - Domain modeling: aggregates, invariants, bounded contexts.

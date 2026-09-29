@@ -1,6 +1,10 @@
 package sd.p02.day15;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * TODO(day15): the same reporting logic, with the dependency inverted.
@@ -13,12 +17,22 @@ import java.util.List;
  * testability is not a separate benefit of DIP, it is the same benefit viewed from the test.
  */
 public final class ReportService {
-
+    List<Sale> sales;
     public ReportService(SalesDataSource dataSource) {
-        throw new UnsupportedOperationException("TODO(day15): store the injected data source");
+        this.sales = dataSource.findSales();
     }
 
     public List<RegionTotal> topRegions(int limit) {
-        throw new UnsupportedOperationException("TODO(day15): group, sum, sort, limit");
+         Map<String, Long> byRegion = new HashMap<>();
+        for (Sale sale : sales) {
+            byRegion.merge(sale.region(), sale.amountCents(), Long::sum);
+        }
+
+        List<RegionTotal> totals = new ArrayList<>();
+        byRegion.forEach((region, total) -> totals.add(new RegionTotal(region, total)));
+        totals.sort(Comparator.comparingLong(RegionTotal::totalCents).reversed()
+                .thenComparing(RegionTotal::region));
+
+        return totals.size() <= limit ? totals : new ArrayList<>(totals.subList(0, limit));
     }
 }
