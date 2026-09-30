@@ -648,3 +648,38 @@ Copy this for each day.
 **Still fuzzy:**
 
 ---
+
+### Day 16 - Value objects and immutability
+
+**Date:** 30th September, 2026 | **Time spent:** 19 Minutes
+
+**What I built:** A `Money` type with immutable, currency-checked arithmetic (backed by a record) that avoids floating point entirely, plus a `Basket` that defensively copies on both the way in and the way out
+
+**The three questions:**
+
+1. The invariant: for any amount split into N parts, the parts must sum back to exactly the original amount, and no two parts may differ by more than one minor unit — divide evenly, then hand out the remainder one minor unit at a time.
+
+   It must hold for every input, not just the ones tested, because money can't be created or destroyed by an allocation. If it holds for typical amounts but silently breaks on an edge case (a small remainder, an amount smaller than the number of parts), that edge case doesn't stay isolated — it gets summed into a larger invoice or ledger total, and the discrepancy only becomes visible once it's mixed into an aggregate figure someone else is trying to reconcile. That's exactly the "where did the penny go" scenario the concept section describes: correct-looking code that's silently wrong only sometimes is far more expensive to find than code that's obviously wrong always.
+
+2. Without the copy (`this.items = items;` instead of `this.items = List.copyOf(items);`), `Basket` holds a reference to the *same list* the caller passed in. If that caller mutates the list later from some unrelated code path — a "remove out-of-stock item" step, a promo-code handler — the basket's contents change too, with zero calls made to `Basket` itself.
+
+   In a log, this is the nasty part: since no method on `Basket` changed its state, there's no method call to log at all.
+
+   ```
+   10:15:02  Basket.total() -> £30.00
+   10:15:09  Basket.total() -> £20.00
+   ```
+
+   The value changed "by itself," with nothing in between explaining it — no constructor call, no method invocation. Debugging means suspecting aliasing and hunting for every place holding a reference to the original list — the same "spooky action at a distance" class of bug as Day 4's visibility issues or Day 12's silent-drop bug: a state change with no causal trail.
+
+3. Two real, defensible cases:
+   - **The storage/wire boundary.** A database column or a JSON payload naturally represents an amount as a plain integer — store/transmit as `long`, but deserialize into `Money` the moment it crosses into domain logic, and unwrap only at the edge on the way back out. Same principle as Day 15's "nothing about persistence may leak into the port," applied in the other direction.
+   - **A hot, high-throughput numeric loop where currency is already guaranteed uniform** — e.g. summing millions of minor-unit values in a batch settlement job already partitioned by currency upstream. The object-allocation cost of wrapping every intermediate value has no corresponding safety benefit here, since there's no realistic risk of mixing currencies.
+
+   What's *not* a good reason: "we only handle one currency, so we don't need `Money`." That trades away the currency-mismatch protection for convenience, and the moment a second currency shows up, `Money` gets retrofitted under pressure instead of being there from day one — the same "axis of change you actually expect" judgment call as Day 12's OCP question.
+
+**The trade-off in one line:** Defensive copying costs an allocation per call — nothing for a small basket, but measure it on a hot path over a large collection, and reach for a genuinely persistent data structure rather than abandoning the guarantee.
+
+**Interview angle:** In any design touching money, saying "amounts are minor-unit integers with currency attached, never floating point" early costs three seconds and signals that you've shipped financial code.
+
+**Still fuzzy:**

@@ -28,14 +28,19 @@ public final class Basket {
     private final List<Money> items;
 
     public Basket(String currency, List<Money> items) {
-        throw new UnsupportedOperationException("TODO(day16): copy defensively on the way in");
+        this.currency = currency;
+        this.items = List.copyOf(items);
     }
 
     public List<Money> items() {
-        throw new UnsupportedOperationException("TODO(day16): do not hand out your internals");
+        return List.copyOf(this.items);
     }
 
     public Money total() {
-        throw new UnsupportedOperationException("TODO(day16): sum the items");
+        long totalMinorUnits = items.stream()
+                .filter(item -> item.currency().equals(this.currency))
+                .mapToLong(Money::minorUnits)
+                .sum();
+        return Money.of(this.currency, totalMinorUnits);
     }
 }

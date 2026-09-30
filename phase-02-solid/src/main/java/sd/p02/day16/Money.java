@@ -37,26 +37,49 @@ import java.util.List;
 public record Money(String currency, long minorUnits) {
 
     public static Money of(String currency, long minorUnits) {
-        throw new UnsupportedOperationException("TODO(day16): validate and construct");
+        if(currency == null || currency.isBlank()) {
+            throw new IllegalArgumentException("Currency must not be null or blank");
+        }
+        if(minorUnits < 0) {
+            throw new IllegalArgumentException("Minor units must be a non-negative number");
+        }
+        return new Money(currency, minorUnits);
     }
 
     public Money plus(Money other) {
-        throw new UnsupportedOperationException("TODO(day16): implement plus");
+        if (!this.currency.equals(other.currency)) {
+            throw new IllegalArgumentException("Currency mismatch: " + this.currency + " vs " + other.currency);
+        }
+        return new Money(this.currency, this.minorUnits + other.minorUnits);
     }
 
     public Money minus(Money other) {
-        throw new UnsupportedOperationException("TODO(day16): implement minus");
+        if (!this.currency.equals(other.currency)) {
+            throw new IllegalArgumentException("Currency mismatch: " + this.currency + " vs " + other.currency);
+        }
+        return new Money(this.currency, this.minorUnits - other.minorUnits);
     }
 
     public Money times(int factor) {
-        throw new UnsupportedOperationException("TODO(day16): implement times");
+        if (factor < 0) {
+            throw new IllegalArgumentException("Factor must be a non-negative number");
+        }
+        return new Money(this.currency, this.minorUnits * factor);
     }
 
     public boolean isNegative() {
-        throw new UnsupportedOperationException("TODO(day16): implement isNegative");
+        return this.minorUnits < 0;
     }
 
     public List<Money> allocate(int parts) {
-        throw new UnsupportedOperationException("TODO(day16): implement allocate");
+        // if (parts <= 0) {
+        //     throw new IllegalArgumentException("Parts must be a positive number");
+        // }
+        // long baseAmount = this.minorUnits / parts;
+        // long remainder = this.minorUnits % parts;
+
+        return parts <= 0 ? List.of() : java.util.stream.IntStream.range(0, parts)
+                .mapToObj(i -> new Money(this.currency, this.minorUnits / parts + (i < this.minorUnits % parts ? 1 : 0)))
+                .toList();
     }
 }
