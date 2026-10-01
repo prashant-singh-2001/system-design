@@ -1,5 +1,7 @@
 package sd.p02.day17.adapter;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 import sd.p02.day17.domain.CodeGenerator;
 
 /**
@@ -15,8 +17,16 @@ import sd.p02.day17.domain.CodeGenerator;
  */
 public final class SequentialCodeGenerator implements CodeGenerator {
 
+    private final AtomicLong counter = new AtomicLong(0);
+
     @Override
     public String nextCode() {
-        throw new UnsupportedOperationException("TODO(day17): base-62 encode the next counter value");
+        long value = counter.incrementAndGet() - 1;
+        StringBuilder sb = new StringBuilder();
+        do {
+            sb.insert(0, "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".charAt((int) (value % 62)));
+            value /= 62;
+        } while (value > 0);
+        return sb.toString();
     }
 }

@@ -3,6 +3,8 @@ package sd.p02.day17.adapter;
 import sd.p02.day17.domain.LinkRepository;
 import sd.p02.day17.domain.ShortLink;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -18,18 +20,25 @@ import java.util.Optional;
  */
 public final class InMemoryLinkRepository implements LinkRepository {
 
+    Map<String, ShortLink> linksByCode = new HashMap<>();
+
     @Override
     public void save(ShortLink link) {
-        throw new UnsupportedOperationException("TODO(day17): store it by code");
+        linksByCode.put(link.code(), link);
     }
 
     @Override
     public Optional<ShortLink> findByCode(String code) {
-        throw new UnsupportedOperationException("TODO(day17): look up by code");
+        return Optional.ofNullable(linksByCode.get(code));
     }
 
     @Override
     public Optional<ShortLink> findByTargetUrl(String targetUrl) {
-        throw new UnsupportedOperationException("TODO(day17): find an existing link for this URL");
+        for (ShortLink link : linksByCode.values()) {
+            if (link.targetUrl().equals(targetUrl)) {
+                return Optional.of(link);
+            }
+        }
+        return Optional.empty();
     }
 }

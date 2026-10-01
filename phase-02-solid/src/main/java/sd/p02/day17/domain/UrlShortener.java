@@ -25,19 +25,38 @@ import java.util.Optional;
  * hexagon. Everything outside it is a detail about how the world reaches them.
  *
  * <p>The constraint for today: this file, and every file in this package, may import NOTHING
- * from {@code sd.p02.day17.adapter}. The test enforces it.
+ * from the adapter package. The test enforces it.
  */
 public final class UrlShortener {
 
+    LinkRepository repository;
+    CodeGenerator codeGenerator;
+    Clock clock;
+
+
     public UrlShortener(LinkRepository repository, CodeGenerator codeGenerator, Clock clock) {
-        throw new UnsupportedOperationException("TODO(day17): store the injected ports");
+        this.repository = repository;
+        this.codeGenerator = codeGenerator;
+        this.clock = clock;
     }
 
     public ShortLink shorten(String targetUrl) {
-        throw new UnsupportedOperationException("TODO(day17): validate, dedupe, generate, save");
+        if (!targetUrl.startsWith("http://") && !targetUrl.startsWith("https://")) {
+            throw new IllegalArgumentException("Invalid URL: " + targetUrl);
+        }
+        Optional<ShortLink> existingLink = repository.findByTargetUrl(targetUrl);
+        if (existingLink.isPresent()) {
+            return existingLink.get();
+        } else {
+            String code = codeGenerator.nextCode();
+            ShortLink newLink = new ShortLink(code, targetUrl, clock.instant());
+            repository.save(newLink);
+            return newLink; 
+        }
     }
 
     public Optional<String> resolve(String code) {
-        throw new UnsupportedOperationException("TODO(day17): look the code up");
+        Optional<ShortLink> link = repository.findByCode(code);
+        return link.map(ShortLink::targetUrl);
     }
 }

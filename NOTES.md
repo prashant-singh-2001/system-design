@@ -683,3 +683,31 @@ Copy this for each day.
 **Interview angle:** In any design touching money, saying "amounts are minor-unit integers with currency attached, never floating point" early costs three seconds and signals that you've shipped financial code.
 
 **Still fuzzy:**
+
+---
+
+### Day 17 - Hexagonal architecture
+
+**Date:** 1st of October, 2026 | **Time spent:** 13 Minutes
+
+**What I built:** `UrlShortener` whose core business logic lives in an independent domain package, with adapters and other supporting code kept outside it.
+
+**The three questions:**
+
+1. No *existing* file needs modification — but two things do change: a new adapter is added (e.g. `PostgresLinkRepository implements LinkRepository`), and the composition root (wherever `UrlShortener` is constructed and wired up) changes to pass in the new repository instead of `InMemoryLinkRepository`. What does **not** change is `UrlShortener.java` itself, the `LinkRepository` port it depends on, and `CodeGenerator`/`SequentialCodeGenerator`, since none of those know or care what's behind the repository. If the repository logic had instead been written directly inside `UrlShortener`, that file itself would have to be edited — which is exactly the dependency-pointing-the-wrong-way problem this architecture exists to prevent.
+
+2. **The case for the repository:** the repository is the one place with full visibility into every stored URL, so checking "does this URL already exist" sits naturally next to `save`/`find`. More importantly, it's genuinely the safer place to guarantee *no duplicates under concurrency* — a domain-level "check then save" has a real race condition: two concurrent `shorten()` calls for the same URL can both pass `findByTargetUrl` before either `save()` commits, minting two codes for one URL. A repository backed by a unique constraint (e.g. a unique index on `target_url` with `INSERT ... ON CONFLICT`) is the only truly race-proof way to enforce that.
+
+   **Why the domain is still the better home:** the idempotency rule — "return the existing link rather than minting a second code" — is a *business policy decision*, not a storage detail. It's the kind of rule a product owner could plausibly want to change (e.g. allow a second code per URL for a different marketing campaign), and that decision needs to live somewhere visible, in one place, not duplicated across every adapter (Postgres, CSV, HTTP) that would otherwise each need to reimplement it identically. The honest answer isn't strictly either/or: keep the idempotency *decision* in the domain, and add the uniqueness constraint in the repository anyway as a last-line-of-defense safety net against the race condition — belt and suspenders, not a substitute for each other.
+
+3. I'd use a non-sequential code — either a random string (`SecureRandom` over the base-62 alphabet) or a hash derived from the URL (the Stretch goal's `HashCodeGenerator`), instead of an incrementing counter.
+
+   **What that costs:** the collision-free guarantee the sequential counter gave for free disappears. With random codes, two different URLs can land on the same code, so you need a check-and-retry loop (generate, look it up, regenerate on collision) — more latency and more domain logic, since that retry has to live somewhere that can query the repository. The collision probability also isn't zero-sum with code length: as more codes get issued, collision probability grows roughly with the square of the count (the birthday problem), so keeping it acceptably low at scale means a longer code, trading away some of the compactness that made sequential codes attractive in the first place.
+
+   A hash-derived code sidesteps the retry loop for the *same* URL (same input always hashes to the same code, which gives idempotency for free) but reintroduces the question the Stretch goal poses directly: what happens when two genuinely *different* URLs hash to the same truncated value? You still need an explicit collision-resolution policy — reject, chain, or extend the hash — there's no getting around deciding it somewhere.
+
+**The trade-off in one line:** More packages and interfaces, even for a trivial CRUD endpoint that now spans three layers to do almost nothing — worth it when the domain is genuinely complex or infrastructure genuinely changes, ceremony otherwise.
+
+**Interview angle:** "The domain declares ports and adapters implement them, so swapping storage touches no business logic" is a strong sentence in any design discussion — especially followed by an honest "for a CRUD service, I wouldn't bother."
+
+**Still fuzzy:**
