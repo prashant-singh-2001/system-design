@@ -26,7 +26,7 @@ Streak rule: missing a day is fine, missing two in a row is the thing to avoid.
 - [x] **Day 14** - **ISP** - no client should depend on methods it ignores.
 - [x] **Day 15** - **DIP** - depend on abstractions; own your boundaries.
 - [x] **Day 16** - Composition over inheritance; value objects; immutability.
-- [ ] **Day 17** - Hexagonal architecture - ports and adapters.
+- [x] **Day 17** - Hexagonal architecture - ports and adapters.
 - [ ] **Day 18** - Domain modeling: aggregates, invariants, bounded contexts.
 - [ ] **Day 19** - Errors as values vs exceptions; designing failure into an API.
 - [ ] **Day 20** - **Phase review.** Refactor under characterization tests.
