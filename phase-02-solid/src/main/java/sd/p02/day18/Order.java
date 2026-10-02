@@ -1,5 +1,6 @@
 package sd.p02.day18;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -44,47 +45,93 @@ import java.util.List;
  */
 public final class Order {
 
+    private List<OrderLine> lines;
+    private OrderStatus status;
+    private String id;
+    private String customerId;
+
     public static Order draft(String id, String customerId) {
-        throw new UnsupportedOperationException("TODO(day18): create an empty DRAFT order");
+        Order order = new Order();
+        order.lines = new ArrayList<>();
+        order.status = OrderStatus.DRAFT;
+        order.id = id;
+        order.customerId = customerId;
+        return order;
     }
 
     public String id() {
-        throw new UnsupportedOperationException("TODO(day18)");
+        return id;
     }
 
     public String customerId() {
-        throw new UnsupportedOperationException("TODO(day18)");
+        return customerId;
     }
 
     public OrderStatus status() {
-        throw new UnsupportedOperationException("TODO(day18)");
+        return status;
     }
 
     public List<OrderLine> lines() {
-        throw new UnsupportedOperationException("TODO(day18): return an unmodifiable view");
+        return List.copyOf(lines);
     }
 
     public long totalCents() {
-        throw new UnsupportedOperationException("TODO(day18): sum the line subtotals");
+        return lines.stream().mapToLong(line -> line.unitPriceCents() * line.quantity()).sum();
     }
 
     public void addLine(String sku, int quantity, long unitPriceCents) {
-        throw new UnsupportedOperationException("TODO(day18): guard state, validate, merge");
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("quantity must be positive");
+        }
+        if (unitPriceCents < 0) {
+            throw new IllegalArgumentException("unit price must not be negative");
+        }
+        if(status != OrderStatus.DRAFT) {
+            throw new IllegalStateException("can only add lines to DRAFT orders");
+        }
+        if(lines.stream().anyMatch(line -> line.sku().equals(sku))) {
+            // merge with existing line
+            lines.stream()
+                    .filter(line -> line.sku().equals(sku))
+                    .findFirst()
+                    .ifPresent(line -> {
+                        int newQuantity = line.quantity() + quantity;
+                        lines.remove(line);
+                        lines.add(new OrderLine(sku, newQuantity, unitPriceCents));
+                    });
+            return;
+        }
+        lines.add(new OrderLine(sku, quantity, unitPriceCents));
     }
 
     public void removeLine(String sku) {
-        throw new UnsupportedOperationException("TODO(day18): DRAFT only");
+        if(status != OrderStatus.DRAFT) {
+            throw new IllegalStateException("can only remove lines from DRAFT orders");
+        }
+        lines.removeIf(line -> line.sku().equals(sku));
     }
 
     public void submit() {
-        throw new UnsupportedOperationException("TODO(day18): DRAFT with lines -> SUBMITTED");
+        if(status != OrderStatus.DRAFT) {
+            throw new IllegalStateException("can only submit DRAFT orders");
+        }
+        if(lines.isEmpty()) {
+            throw new IllegalStateException("can only submit orders with lines");
+        }
+        status = OrderStatus.SUBMITTED;
     }
 
     public void pay() {
-        throw new UnsupportedOperationException("TODO(day18): SUBMITTED -> PAID");
+        if(status != OrderStatus.SUBMITTED) {
+            throw new IllegalStateException("can only pay SUBMITTED orders");
+        }
+        status = OrderStatus.PAID;
     }
 
     public void cancel() {
-        throw new UnsupportedOperationException("TODO(day18): DRAFT or SUBMITTED -> CANCELLED");
+        if(status != OrderStatus.DRAFT && status != OrderStatus.SUBMITTED) {
+            throw new IllegalStateException("can only cancel DRAFT or SUBMITTED orders");
+        }
+        status = OrderStatus.CANCELLED;
     }
 }

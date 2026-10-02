@@ -688,7 +688,7 @@ Copy this for each day.
 
 ### Day 17 - Hexagonal architecture
 
-**Date:** 1st of October, 2026 | **Time spent:** 13 Minutes
+**Date:** 1st October, 2026 | **Time spent:** 13 Minutes
 
 **What I built:** `UrlShortener` whose core business logic lives in an independent domain package, with adapters and other supporting code kept outside it.
 
@@ -709,5 +709,38 @@ Copy this for each day.
 **The trade-off in one line:** More packages and interfaces, even for a trivial CRUD endpoint that now spans three layers to do almost nothing — worth it when the domain is genuinely complex or infrastructure genuinely changes, ceremony otherwise.
 
 **Interview angle:** "The domain declares ports and adapters implement them, so swapping storage touches no business logic" is a strong sentence in any design discussion — especially followed by an honest "for a CRUD service, I wouldn't bother."
+
+**Still fuzzy:**
+
+---
+
+### Day 18 - Aggregates and invariants
+
+**Date:** 3rd October, 2026 | **Time spent:** 22 Minutes
+
+**What I built:** Order management system
+
+**The three questions:**
+
+1. Without an aggregate, each of the eight rules would be duplicated as ad-hoc checks across every service that touches order data directly — a checkout API, a cart service, an admin backoffice tool, a batch import job, a refund/cancellation service, a reporting/export job. Concretely:
+   - Rule 2 (lines only added/removed while `DRAFT`) needs an `if (status == DRAFT)` guard before every single insert/delete on order lines, in every service that can reach that table.
+   - Rule 4 (merge on re-add) is a judgment call that would likely be implemented *differently* in the UI cart logic versus the backend persistence logic, since nothing forces them to agree.
+   - Rules 6-8 (submit/pay/cancel transitions) are a classic status check duplicated wherever anything mutates order status: a payment webhook handler, an admin cancel button, a nightly job auto-cancelling abandoned carts.
+
+   "How many places" isn't a fixed number — it's every current and future service that can read-modify-write an order row, which only grows over time. A rule correctly enforced in 5 of 6 call sites today fails the moment a 7th is added by someone who didn't know the other five existed.
+
+2. **What I'd gain:** thread-safety for free — no synchronization needed to read an `Order` concurrently, since it can never change underneath a reader. No "spooky action at a distance" the way Day 16's `Basket` bug worked — an `Order`'s state is exactly what it was when you got the reference, never mutated by something else further down a call chain. It also pairs naturally with the Stretch goal's domain events: if every operation returns a new instance, keeping the full history of an order's versions is close to free.
+
+   **What gets harder:** persistence becomes awkward — `save(Order)` has to replace the stored version rather than mutate in place, and every call site has to be rewritten from `order.submit();` to `order = order.submit();`, which is a real behavioral change everywhere, not just an internal detail. Concurrency control doesn't disappear either, it *relocates*: if two threads load the same `Order` and both call `pay()` independently, you get two divergent "next" versions instead of one in-memory race — you still need an optimistic-concurrency check (a version compare-and-swap) at the repository layer to decide which one wins.
+
+3. Looking at the actual implementation: `OrderLine` is a value object, not an entity — and the deciding factor isn't how it's stored, it's whether the domain needs to track a *specific line's identity* independently of its data.
+
+   `Order.addLine()`'s merge rule is the evidence: re-adding the same SKU doesn't create a second line, it destroys the old `OrderLine` and creates a new one with the combined quantity (`lines.remove(line); lines.add(new OrderLine(...))`). Two lines with identical SKU, quantity, and price are fully interchangeable — nobody can tell, or cares, whether it's "the same line that changed" or "a new line with the same data." That's exactly what a value object is.
+
+   A separate database table and a foreign key to the order don't decide this either way — that's a persistence/ORM detail, and a value object can absolutely live in its own table with a synthetic primary key that nobody in the domain ever looks up or compares by. What *would* flip `OrderLine` to an entity is a real business need to distinguish "same data, different occurrence" — e.g. if two $5 units of the same SKU added at different times needed independent fulfillment status or their own audit trail. Then the line needs a persistent identity separate from its SKU/quantity/price, because merging them would destroy information the business actually cares about. Nothing in this exercise's invariants requires that, so value object is the right call here.
+
+**The trade-off in one line:** Aggregates set your transaction boundary, so a big aggregate means a big lock and a contention hot spot — the same "shard the contended thing" tension from Day 5, one level up at the domain. Design aggregates small; anything that doesn't need transactional consistency belongs in a different one.
+
+**Interview angle:** "I would make `Order` the aggregate root, so status transitions and line edits are enforced in one place and the transaction boundary is one order." That sentence signals you've thought about both consistency and locking — which are the same question wearing different clothes.
 
 **Still fuzzy:**
