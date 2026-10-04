@@ -44,6 +44,8 @@ import java.util.function.Function;
  */
 public sealed interface Result<T, E> permits Result.Success, Result.Failure {
 
+
+
     record Success<T, E>(T value) implements Result<T, E> {
     }
 
@@ -51,30 +53,45 @@ public sealed interface Result<T, E> permits Result.Success, Result.Failure {
     }
 
     static <T, E> Result<T, E> success(T value) {
-        throw new UnsupportedOperationException("TODO(day19): implement success");
+        return new Success<>(value);
     }
 
     static <T, E> Result<T, E> failure(E error) {
-        throw new UnsupportedOperationException("TODO(day19): implement failure");
+        return new Failure<>(error);
     }
 
     default boolean isSuccess() {
-        throw new UnsupportedOperationException("TODO(day19): implement isSuccess");
+        return switch (this) {
+            case Success<T, E> s -> true;
+            case Failure<T, E> f -> false;
+        };
     }
 
     default <R> Result<R, E> map(Function<T, R> mapper) {
-        throw new UnsupportedOperationException("TODO(day19): implement map");
+        return switch (this) {
+            case Success<T, E> s -> success(mapper.apply(s.value()));
+            case Failure<T, E> f -> failure(f.error());
+        };
     }
 
     default <R> Result<R, E> flatMap(Function<T, Result<R, E>> mapper) {
-        throw new UnsupportedOperationException("TODO(day19): implement flatMap");
+        return switch (this) {
+            case Success<T, E> s -> mapper.apply(s.value());
+            case Failure<T, E> f -> failure(f.error());
+        };
     }
 
     default T orElse(T fallback) {
-        throw new UnsupportedOperationException("TODO(day19): implement orElse");
+        return switch (this) {
+            case Success<T, E> s -> s.value();
+            case Failure<T, E> f -> fallback;
+        };
     }
 
     default T orElseThrow() {
-        throw new UnsupportedOperationException("TODO(day19): implement orElseThrow");
+        return switch (this) {
+            case Success<T, E> s -> s.value();
+            case Failure<T, E> f -> throw new IllegalStateException(f.error().toString());
+        };
     }
 }

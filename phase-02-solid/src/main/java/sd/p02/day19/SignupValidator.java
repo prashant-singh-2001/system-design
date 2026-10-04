@@ -1,5 +1,6 @@
 package sd.p02.day19;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -23,6 +24,19 @@ import java.util.List;
 public final class SignupValidator {
 
     public Result<Signup, List<String>> validate(Signup signup) {
-        throw new UnsupportedOperationException("TODO(day19): accumulate every failure");
+        List<String> errors = new ArrayList<>();
+        if (signup.email() == null || !signup.email().contains("@")) {
+            errors.add("email is invalid");
+        }
+        if (signup.username() == null || signup.username().length() < 3) {
+            errors.add("username is too short");
+        }
+        if (signup.age() < 18) {
+            errors.add("must be 18 or older");
+        }
+        if (!errors.isEmpty()) {
+            return Result.failure(errors);
+        }
+        return Result.success(signup);
     }
 }

@@ -28,7 +28,7 @@ Streak rule: missing a day is fine, missing two in a row is the thing to avoid.
 - [x] **Day 16** - Composition over inheritance; value objects; immutability.
 - [x] **Day 17** - Hexagonal architecture - ports and adapters.
 - [x] **Day 18** - Domain modeling: aggregates, invariants, bounded contexts.
-- [ ] **Day 19** - Errors as values vs exceptions; designing failure into an API.
+- [x] **Day 19** - Errors as values vs exceptions; designing failure into an API.
 - [ ] **Day 20** - **Phase review.** Refactor under characterization tests.
 
 ## Phase 3 (days 21-30)

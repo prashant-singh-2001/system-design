@@ -744,3 +744,42 @@ Copy this for each day.
 **Interview angle:** "I would make `Order` the aggregate root, so status transitions and line edits are enforced in one place and the transaction boundary is one order." That sentence signals you've thought about both consistency and locking — which are the same question wearing different clothes.
 
 **Still fuzzy:**
+
+----
+
+### Day 19 - Errors as values
+
+**Date:** 4th October,2026  | **Time spent:** 26 Minutes
+
+**What I built:** A sealed `Result<T, E>` (`Success`/`Failure`) with `map`, `flatMap`, `orElse`, `orElseThrow`, plus a `SignupValidator` that accumulates every validation failure instead of stopping at the first
+
+**The three questions:**
+
+1. Three signatures, three different signals to the caller. For a method parsing a `User` from a string:
+   - **Throwing:** `User parseUser(String input)` — the signature says nothing about failure at all. The caller has to read documentation or discover it at runtime via an uncaught exception. It communicates: "this probably succeeds; if you're wrong about that, you'll find out the hard way." It also tells the caller nothing about *why* it might fail without digging into exception types.
+   - **`Optional`:** `Optional<User> parseUser(String input)` — the signature says "this can produce nothing, and you must deal with that possibility" — the compiler forces an explicit unwrap (`.map()`, `.orElseThrow()`, etc.), so you can't accidentally treat a missing value as present. But it throws away *why* it failed — `Optional.empty()` carries zero diagnostic information. Good for "value may genuinely be absent," useless for "tell me what went wrong."
+   - **`Result`:** `Result<User, List<String>> parseUser(String input)` — the signature says "this can succeed with a `User` or fail with a specific, typed description of what went wrong (a list of reasons)." Like `Optional`, the compiler forces handling both branches — but unlike `Optional`, the failure case actually carries structured data, which is exactly what `SignupValidator` relies on (`Result<Signup, List<String>>`, where the failure branch is three potential error strings, not just "no").
+
+   The spectrum: throwing hides the possibility of failure entirely; `Optional` reveals that failure is possible but erases why; `Result` reveals both that failure is possible and exactly what that failure looks like.
+
+2. At the controller/handler boundary — right where the web framework needs to produce an HTTP response — not anywhere inside domain or validation logic.
+
+   Concretely: the controller calls something like `.orElseThrow()` on the `Result` returned by domain code, and either catches the resulting exception directly or lets the framework's global exception-handling machinery (e.g. a `@ControllerAdvice`/`@ExceptionHandler` in Spring, or equivalent middleware) catch it and map it to an HTTP status — a 400 with the validation errors in the body, or 422.
+
+   Why there specifically: that's the one point where `Result`'s composability stops being useful, because nothing downstream will further chain or combine on it — the HTTP response is the end of the line for this computation. Everywhere before that point, you want `Result`'s benefits: explicit, cheap, accumulable failures composed via `map`/`flatMap` without nested try/catch cluttering business logic. But the web framework's response-generation plumbing is conventionally exception-based — routing, filters, and global error handlers are built around throw/catch. Converting exactly once, at the controller seam, means the domain/service layer gets to live entirely in `Result`-land while still playing nicely with ambient framework machinery that expects exceptions. It's the same idea as Day 15's port boundary: translate once, at the seam between two different worlds, not scattered throughout.
+
+3. `flatMap` is inherently sequential and short-circuiting: `a.flatMap(fn)` only calls `fn` if `a` is a `Success`, and the moment any step in a chain fails, every subsequent `flatMap` is skipped entirely, since a `Failure` just passes its error through without invoking the next function. A chain of three `flatMap`s checking email, then username, then age would stop at the first failing check and never attempt the other two — reproducing the exact "stop at the first problem" behavior exceptions have, just through return values instead of stack unwinding.
+
+   The foundational reason: `flatMap`'s contract is "run this step, and if the input already failed, there's no actual value to feed the next step, so don't run it" — which makes sense for *dependent* computations, where step 2 genuinely needs step 1's real output. But independent validation rules don't depend on each other at all — the username check doesn't need the email check to have succeeded to run its own logic and report its own problem.
+
+   What you'd need instead: a combinator that runs every independent check regardless of whether earlier ones failed, and merges the outcomes — accumulating every error if any failed, or collecting every value if all succeeded. That's `Result.combine(List<Result<T, E>>)`, the Stretch goal. `SignupValidator` doesn't use `flatMap` chains at all — it runs three independent `if` checks into one shared mutable list, a hand-rolled, imperative version of exactly this "combine independent results" idea.
+
+   The name: a **monad**'s `flatMap`/`bind` sequences *dependent* computations and must short-circuit on first failure, since there's no value to hand forward once something fails. An **applicative** combines *independent* computations that don't need each other's results — run a combining function across all of them regardless of which have failed. Accumulating validation is an applicative operation; `flatMap` can't do it because it's solving a structurally different problem.
+
+**The trade-off in one line:** `Result` is viral — once a method returns one, every caller must handle it and the style spreads outward, so use it for expected domain outcomes and keep exceptions for genuine faults, converting at the boundary.
+
+**Interview angle:** "Expected failures are return values, unexpected failures are exceptions" is a clear position to hold in a design review — as long as you can also say where you convert between them.
+
+**Still fuzzy:**
+
+**Still fuzzy:** 
